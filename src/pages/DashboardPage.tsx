@@ -312,7 +312,6 @@ export const DashboardPage: React.FC = () => {
                         <div className="w-64 h-64">
                             <Doughnut
                                 data={deptData}
-                                // ... (options omitted for brevity but they should be preserved)
                                 options={{
                                     responsive: true,
                                     maintainAspectRatio: false,
