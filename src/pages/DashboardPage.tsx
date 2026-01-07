@@ -308,10 +308,11 @@ export const DashboardPage: React.FC = () => {
                     <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2">
                         <PieChart size={16} /> 詳細内訳
                     </h3>
-                    {deptData ? (
+                    {deptData && stats.totalSec > 0 ? (
                         <div className="w-64 h-64">
                             <Doughnut
                                 data={deptData}
+                                // ... (options omitted for brevity but they should be preserved)
                                 options={{
                                     responsive: true,
                                     maintainAspectRatio: false,
@@ -329,7 +330,6 @@ export const DashboardPage: React.FC = () => {
                                                 label: function (context: any) {
                                                     const value = context.parsed || 0;
                                                     const datasetLabel = context.dataset.label || '';
-                                                    // Access custom labels from dataset
                                                     const customLabels = context.dataset.customLabels;
                                                     const label = customLabels ? customLabels[context.dataIndex] : (context.chart.data.labels[context.dataIndex] || '');
                                                     return `[${datasetLabel}] ${label}: ${value} min`;
@@ -339,6 +339,11 @@ export const DashboardPage: React.FC = () => {
                                     }
                                 }}
                             />
+                        </div>
+                    ) : logs.length > 0 ? (
+                        <div className="text-center p-4">
+                            <div className="text-slate-400 dark:text-slate-500 text-sm mb-2">1分未満の記録は集計されません</div>
+                            <div className="text-xs text-slate-500 italic">※設定により1分単位で切り捨てられています</div>
                         </div>
                     ) : (
                         <div className="text-slate-400 dark:text-slate-600 text-sm">データがありません</div>
