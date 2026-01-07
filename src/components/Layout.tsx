@@ -26,7 +26,7 @@ export const Layout: React.FC = () => {
                         <Menu size={24} />
                     </button>
                     <span className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-purple-500 font-['Zen_Maru_Gothic']">
-                        ラフタスク管理表
+                        タスク管理表
                     </span>
                 </div>
                 <button
@@ -48,7 +48,7 @@ export const Layout: React.FC = () => {
                 className={`fixed top-0 left-0 bottom-0 w-72 border-r border-slate-200 dark:border-slate-800 z-[100] transition-transform duration-300 ease-out shadow-2xl md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100 dark:border-slate-800">
                     <span className="font-bold text-xl tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-purple-500 font-['Zen_Maru_Gothic']">
-                        ラフタスク管理表
+                        タスク管理表
                     </span>
                     <button onClick={() => setMobileOpen(false)} className="md:hidden p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600">
                         <X size={20} />
