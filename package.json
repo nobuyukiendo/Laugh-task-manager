@@ -31,6 +31,7 @@
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@tailwindcss/postcss": "^4.1.18",
+    "@tauri-apps/cli": "^2.9.6",
     "@types/chart.js": "^2.9.41",
     "@types/gapi": "^0.0.47",
     "@types/gapi.calendar": "^3.0.11",
