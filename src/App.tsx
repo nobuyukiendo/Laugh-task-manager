@@ -1,5 +1,5 @@
 // import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { MasterProvider } from './contexts/MasterContext';
 import { TimerProvider } from './contexts/TimerContext';
@@ -21,7 +21,7 @@ function App() {
         <SettingsProvider>
             <MasterProvider>
                 <TimerProvider>
-                    <BrowserRouter>
+                    <HashRouter>
                         <Routes>
                             <Route path="/" element={<Layout />}>
                                 <Route index element={<TimerPage />} />
@@ -32,7 +32,7 @@ function App() {
                                 <Route path="master" element={<MasterPage />} />
                             </Route>
                         </Routes>
-                    </BrowserRouter>
+                    </HashRouter>
                 </TimerProvider>
             </MasterProvider>
         </SettingsProvider>
