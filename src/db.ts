@@ -117,7 +117,7 @@ db.on('populate', async () => {
     // Default Settings
     await db.settings.add({
         key: 'config',
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone: 'Asia/Tokyo',
         rounding: 1, // Default 1 min
         weekStartsOnMonday: true,
         calendar: {
