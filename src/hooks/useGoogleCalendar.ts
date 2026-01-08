@@ -43,10 +43,14 @@ export const useGoogleCalendar = () => {
         // Resolve Names
         const deptName = departments.find(d => d.id === log.departmentId)?.name || '';
         const wtName = workTypes.find(w => w.id === log.workTypeId)?.name || '';
-        const detailNames = log.detailTaskIds
-            .map(did => detailTasks.find(d => d.id === did)?.name)
-            .filter(Boolean)
-            .join(' '); // Concatenate with space or empty? Request said "No separators" but space is natural.
+        // Resolve Detail Names (including non-master)
+        let dNamesArr = log.detailTaskNames || [];
+        if (dNamesArr.length === 0 && log.detailTaskIds.length > 0) {
+            dNamesArr = log.detailTaskIds
+                .map(did => detailTasks.find(d => d.id === did)?.name)
+                .filter(Boolean) as string[];
+        }
+        const detailNamesStr = dNamesArr.join(' ');
         // Request: "連結(区切り文字なし)" -> No separators literally.
 
         // Strict "No Separator" Construction:
@@ -57,16 +61,12 @@ export const useGoogleCalendar = () => {
 
         // Actually, let's use brackets for clarity if not forbidden, but user said "concatenated display names without separators". 
         // "部門名作業種別名詳細タスク名メモ"
-        const title = `${deptName}${wtName}${detailNames}${log.note || ''}`;
+        const title = `${deptName}${wtName}${detailNamesStr}${log.note || ''}`;
 
-        // Description: IDs and structured data
-        // Description: Clean, no IDs
-        const description = [
-            `詳細: ${detailNames}`,
-            `メモ: ${log.note || ''}`,
-            '---',
-            'Registered via Vibe Time Tracker'
-        ].join('\n');
+        const descParts = [];
+        if (detailNamesStr) descParts.push(detailNamesStr);
+        if (log.note) descParts.push(log.note);
+        const description = descParts.join('\n');
 
         return {
             summary: title,
