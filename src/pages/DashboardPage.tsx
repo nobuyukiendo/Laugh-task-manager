@@ -265,7 +265,7 @@ export const DashboardPage: React.FC = () => {
         const currLogsRaw = logs;
 
         const aggregateByCompoundKey = (targetLogs: WorkLog[]) => {
-            const map: Record<string, { h: number; display: string }> = {};
+            const map: Record<string, { sec: number; count: number; display: string }> = {};
             targetLogs.forEach(l => {
                 const deptName = departments.find(d => d.id === l.departmentId)?.name || '';
                 const wtName = workTypes.find(w => w.id === (l.workTypeId || ''))?.name || '';
@@ -289,9 +289,10 @@ export const DashboardPage: React.FC = () => {
                 const displayPrefix = `${cleanD}${cleanW}${cleanDt}`;
 
                 if (!map[compoundKey]) {
-                    map[compoundKey] = { h: 0, display: displayPrefix };
+                    map[compoundKey] = { sec: 0, count: 0, display: displayPrefix };
                 }
-                map[compoundKey].h += (l.durationSec || 0);
+                map[compoundKey].sec += (l.durationSec || 0);
+                map[compoundKey].count += 1;
             });
             return map;
         };
@@ -305,19 +306,35 @@ export const DashboardPage: React.FC = () => {
         allKeys.forEach(key => {
             const prev = prevMap[key];
             const curr = currMap[key];
-            const prevMin = prev ? Math.round(prev.h / 60) : 0;
-            const currMin = curr ? Math.round(curr.h / 60) : 0;
+            const prevSec = prev ? prev.sec : 0;
+            const currSec = curr ? curr.sec : 0;
+            const prevCount = prev ? prev.count : 0;
+            const currCount = curr ? curr.count : 0;
 
-            // Strict Intersection: Only show if present in both weeks with > 0min
+            const prevMin = Math.round(prevSec / 60);
+            const currMin = Math.round(currSec / 60);
+
+            // Strict Intersection: Only show if present in both weeks
             if (prevMin > 0 && currMin > 0) {
+                // Total Comparison
                 const diffMin = currMin - prevMin;
-                const improvementRate = ((prevMin - currMin) / prevMin) * 100;
-                const sign = improvementRate >= 0 ? '+' : '';
+                const totalImprovement = ((prevMin - currMin) / prevMin) * 100;
+                const totalSign = totalImprovement >= 0 ? '+' : '';
+                const totalTrend = diffMin > 0 ? `+${diffMin}min` : diffMin < 0 ? `${diffMin}min` : '±0min';
 
-                const trend = diffMin > 0 ? ` (+${diffMin}min)` : diffMin < 0 ? ` (${diffMin}min)` : ' (±0min)';
-                const rateStr = `（改善率 ${sign}${improvementRate.toFixed(1)}%）`;
+                // Average Comparison
+                const prevAvgMin = Math.round((prevSec / prevCount) / 60);
+                const currAvgMin = Math.round((currSec / currCount) / 60);
+                const diffAvgMin = currAvgMin - prevAvgMin;
+                const avgImprovement = prevAvgMin > 0 ? ((prevAvgMin - currAvgMin) / prevAvgMin) * 100 : 0;
+                const avgSign = avgImprovement >= 0 ? '+' : '';
+                const avgTrend = diffAvgMin > 0 ? `+${diffAvgMin}min` : diffAvgMin < 0 ? `${diffAvgMin}min` : '±0min';
 
-                matchedLines.push(`・${curr.display}：先週 ${prevMin}min → 今週 ${currMin}min${trend}${rateStr}`);
+                matchedLines.push(
+                    `・${curr.display}：\n` +
+                    `　合計: 先週 ${prevMin}min → 今週 ${currMin}min (${totalTrend}) (改善率 ${totalSign}${totalImprovement.toFixed(1)}%)\n` +
+                    `　平均: 先週 ${prevAvgMin}min → 今週 ${currAvgMin}min (${avgTrend}) (改善率 ${avgSign}${avgImprovement.toFixed(1)}%)`
+                );
             }
         });
 
