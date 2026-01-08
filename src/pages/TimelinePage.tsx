@@ -9,6 +9,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { ChevronLeft, ChevronRight, Trash2, Edit2, UploadCloud, CalendarCheck, Plus, X, Book, History as HistoryIcon } from 'lucide-react';
 import { EditLogModal } from '../components/EditLogModal';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
+import { ImportGCalModal } from '../components/ImportGCalModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLocation } from 'react-router-dom';
 
@@ -29,6 +30,7 @@ export const TimelinePage: React.FC = () => {
 
     const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
     const [showManualEntry, setShowManualEntry] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
 
     // Scroll & Highlight Effect
     React.useEffect(() => {
@@ -181,7 +183,18 @@ export const TimelinePage: React.FC = () => {
                 </div>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+                {settings?.calendar.connected && (
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setShowImportModal(true)}
+                        className="gap-1 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                    >
+                        <CalendarCheck size={16} className="text-cyan-500" />
+                        カレンダーからインポート
+                    </Button>
+                )}
                 <Button
                     size="sm"
                     variant={showManualEntry ? 'ghost' : 'secondary'}
@@ -450,6 +463,15 @@ export const TimelinePage: React.FC = () => {
 
             {editingLog && (
                 <EditLogModal log={editingLog} onClose={() => setEditingLog(null)} />
+            )}
+
+            {showImportModal && (
+                <ImportGCalModal
+                    onClose={() => setShowImportModal(false)}
+                    onImportSuccess={() => {
+                        // Success toast or refresh logic if needed
+                    }}
+                />
             )}
         </div>
     );

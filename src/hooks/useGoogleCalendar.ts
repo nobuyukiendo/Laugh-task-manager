@@ -232,5 +232,64 @@ export const useGoogleCalendar = () => {
         }
     };
 
-    return { syncLog, isSyncing, login };
+    const parseEventSummary = (summary: string) => {
+        const matches = summary.match(/【[^】]+】/g) || [];
+        let deptId = '';
+        let wtId = '';
+        let detail = summary;
+
+        if (matches.length >= 1) {
+            const dName = matches[0] as string;
+            const dept = departments.find(d => d.name === dName && d.enabled);
+            if (dept) {
+                deptId = dept.id;
+                // Remove the match from detail string
+                detail = detail.replace(dName, "").trim();
+            }
+
+            if (matches.length >= 2) {
+                const wName = matches[1] as string;
+                const wt = workTypes.find(w => w.name === wName && w.enabled);
+                if (wt) {
+                    wtId = wt.id;
+                    // Remove the second match
+                    detail = detail.replace(wName, "").trim();
+                }
+            }
+        }
+
+        return { deptId, wtId, detail };
+    };
+
+    const fetchEventsForImport = async (date: Date): Promise<any[]> => {
+        const token = getAccessToken();
+        if (!token) return [];
+
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const events = await listEvents(startOfDay, endOfDay);
+
+        // Filter out all-day events for now (they don't have duration)
+        // or handle them as 24h? User usually wants time-specific ones.
+        return events
+            .filter(e => !!e.start.dateTime)
+            .map(e => {
+                const { deptId, wtId, detail } = parseEventSummary(e.summary);
+                return {
+                    id: e.id,
+                    summary: e.summary,
+                    startAt: new Date(e.start.dateTime!).getTime(),
+                    endAt: new Date(e.end.dateTime!).getTime(),
+                    deptId,
+                    wtId,
+                    detail,
+                    description: e.description
+                };
+            });
+    };
+
+    return { syncLog, isSyncing, login, fetchEventsForImport };
 };
