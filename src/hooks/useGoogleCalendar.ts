@@ -8,8 +8,8 @@ import { useGoogleLogin } from '@react-oauth/google';
 interface GCalEvent {
     summary: string;
     description: string;
-    start: { dateTime: string };
-    end: { dateTime: string };
+    start: { dateTime?: string; date?: string };
+    end: { dateTime?: string; date?: string };
     id?: string;
 }
 
@@ -141,28 +141,23 @@ export const useGoogleCalendar = () => {
                 const e = new Date(log.endAt || Date.now());
                 const collisions = await listEvents(s, e);
 
-                // Filter out self
-                const realCollisions = collisions.filter(c => log.calendar?.eventId ? c.id !== log.calendar.eventId : true);
+                // Filter out:
+                // 1. Self (if updating)
+                // 2. All-day events (events without dateTime)
+                const realCollisions = collisions.filter(c => {
+                    const isSelf = log.calendar?.eventId ? c.id === log.calendar.eventId : false;
+                    const isAllDay = !c.start.dateTime;
+                    return !isSelf && !isAllDay;
+                });
 
                 if (realCollisions.length > 0) {
-                    // Check for EXACT Time Match (Start AND End match)
-                    // We check ISO strings for equality (ignoring millis or if standardized)
-                    // Actually GCal API returns ISO.
-
-
                     const exactMatch = realCollisions.find(c => {
-                        // Compare start/end. Note: GCal might drop seconds?
-                        // Assuming exact match if within margin? Or strict string?
-                        // Let's use simplified Time comparison.
-                        return new Date(c.start.dateTime).getTime() === s.getTime() &&
-                            new Date(c.end.dateTime).getTime() === e.getTime();
+                        return new Date(c.start.dateTime!).getTime() === s.getTime() &&
+                            new Date(c.end.dateTime!).getTime() === e.getTime();
                     });
 
                     if (exactMatch) {
-                        // Auto Overwrite logic: Treat this as "Update"
-                        // We hijack this event ID.
                         log.calendar = { ...(log.calendar || { synced: false }), eventId: exactMatch.id };
-                        // Fall through to Update Logic below
                     } else {
                         setIsSyncing(false);
                         return { status: 'COLLISION_ERROR', collisionEvents: realCollisions };
