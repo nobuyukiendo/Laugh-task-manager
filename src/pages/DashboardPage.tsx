@@ -305,19 +305,19 @@ export const DashboardPage: React.FC = () => {
         allKeys.forEach(key => {
             const prev = prevMap[key];
             const curr = currMap[key];
-            const prevH = prev ? prev.h / 3600 : 0;
-            const currH = curr ? curr.h / 3600 : 0;
+            const prevMin = prev ? Math.round(prev.h / 60) : 0;
+            const currMin = curr ? Math.round(curr.h / 60) : 0;
 
-            // Strict Intersection: Only show if present in both weeks with > 0h
-            if (prevH > 0 && currH > 0) {
-                const diffH = currH - prevH;
-                const improvementRate = ((prevH - currH) / prevH) * 100;
+            // Strict Intersection: Only show if present in both weeks with > 0min
+            if (prevMin > 0 && currMin > 0) {
+                const diffMin = currMin - prevMin;
+                const improvementRate = ((prevMin - currMin) / prevMin) * 100;
                 const sign = improvementRate >= 0 ? '+' : '';
 
-                const trend = diffH > 0 ? ` (+${diffH.toFixed(1)}h)` : diffH < 0 ? ` (${diffH.toFixed(1)}h)` : ' (±0h)';
+                const trend = diffMin > 0 ? ` (+${diffMin}min)` : diffMin < 0 ? ` (${diffMin}min)` : ' (±0min)';
                 const rateStr = `（改善率 ${sign}${improvementRate.toFixed(1)}%）`;
 
-                matchedLines.push(`・${curr.display}：先週 ${prevH.toFixed(1)}h → 今週 ${currH.toFixed(1)}h${trend}${rateStr}`);
+                matchedLines.push(`・${curr.display}：先週 ${prevMin}min → 今週 ${currMin}min${trend}${rateStr}`);
             }
         });
 

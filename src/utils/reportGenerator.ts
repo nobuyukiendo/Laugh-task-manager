@@ -24,11 +24,10 @@ export const getWeeklySummary = ({ logs, departments, workTypes, detailTasks }: 
     // Helpers to resolve names
     const getDeptName = (id: string) => departments.find(d => d.id === id)?.name || '不明な部門';
     const getWTName = (id: string) => workTypes.find(w => w.id === id)?.name || '未分類';
-    const getDTName = (id: string) => detailTasks.find(d => d.id === id)?.name || '不明';
 
     // 1. Total Duration
     const totalSec = logs.reduce((acc, l) => acc + (l.durationSec || 0), 0);
-    const totalHours = (totalSec / 3600).toFixed(1);
+    const totalMinutes = Math.round(totalSec / 60);
 
     // 2. Aggregations
     const deptMap: Record<string, number> = {};
@@ -73,7 +72,7 @@ export const getWeeklySummary = ({ logs, departments, workTypes, detailTasks }: 
         return Object.entries(map)
             .sort(([, a], [, b]) => b - a)
             .slice(0, limit)
-            .map(([name, sec]) => `・${name}: ${(sec / 3600).toFixed(1)}h`)
+            .map(([name, sec]) => `・${name}: ${Math.round(sec / 60)}min`)
             .join('\n');
     };
 
@@ -81,7 +80,7 @@ export const getWeeklySummary = ({ logs, departments, workTypes, detailTasks }: 
     const wtStr = formatMap(wtMap);
     const dtStr = formatMap(dtMap, 8); // Top 8 details
 
-    return `【週合計】 ${totalHours} 時間\n\n【部門別】\n${deptStr}\n\n【作業種別】\n${wtStr}\n\n【詳細作業 (Top 8)】\n${dtStr}`;
+    return `【週合計】 ${totalMinutes} 分\n\n【部門別】\n${deptStr}\n\n【作業種別】\n${wtStr}\n\n【詳細作業 (Top 8)】\n${dtStr}`;
 };
 
 export const getDefaultEditorialTemplate = (): string => {

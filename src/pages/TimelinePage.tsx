@@ -318,8 +318,26 @@ export const TimelinePage: React.FC = () => {
                                 return;
                             }
 
+                            // Process any remaining text in the manualDetailInput
+                            let finalNamesRaw = [...manualDetailNames];
+                            const currentInput = normalizeTaskName(manualDetailInput);
+                            if (currentInput && !finalNamesRaw.includes(currentInput)) {
+                                finalNamesRaw.push(currentInput);
+                                // Save to master if requested
+                                if (saveToMaster) {
+                                    const exists = detailTasks.find(d => normalizeTaskName(d.name) === currentInput);
+                                    if (!exists) {
+                                        await addDetailTask({
+                                            name: currentInput,
+                                            workTypeId: manualForm.workTypeId || ''
+                                        });
+                                    }
+                                }
+                                await addRecentDetailTask(currentInput, manualForm.workTypeId || '');
+                            }
+
                             const durationSec = Math.floor((endAt - startAt) / 1000);
-                            const finalNames = manualDetailNames.map(normalizeTaskName).filter(Boolean);
+                            const finalNames = finalNamesRaw.map(normalizeTaskName).filter(Boolean);
                             const derivedIds = finalNames.map(name =>
                                 detailTasks.find(d => normalizeTaskName(d.name) === name)?.id
                             ).filter(Boolean) as string[];
