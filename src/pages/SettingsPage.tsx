@@ -104,6 +104,9 @@ export const SettingsPage: React.FC = () => {
                             <p className="text-sm text-slate-400">
                                 Googleアカウントと連携すると、完了した作業ログを自動でカレンダーに登録できます。
                             </p>
+                            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md text-xs text-amber-700 dark:text-amber-300">
+                                ※Googleの仕様上、セキュリティ保護のため連携は約1時間で自動的に解除されます。転記やインポートを行う直前に接続してください。
+                            </div>
                             <Button onClick={() => login()}>
                                 Googleアカウントを接続
                             </Button>

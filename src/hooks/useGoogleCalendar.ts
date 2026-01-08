@@ -39,6 +39,22 @@ export const useGoogleCalendar = () => {
     // In a real app, we'd handle token refresh or use the Google Identity Services clearer.
     const getAccessToken = () => settings?.calendar.accessToken;
 
+    const handleAuthError = (res: Response) => {
+        if (res.status === 401) {
+            updateSettings({
+                calendar: {
+                    eventTitleTemplate: '', // Fallback for required field
+                    ...settings?.calendar,
+                    connected: false,
+                    accessToken: undefined
+                }
+            });
+            alert("接続がタイムアウトしました。設定から再接続してください。");
+            return true;
+        }
+        return false;
+    };
+
     const constructEventData = (log: WorkLog) => {
         // Resolve Names
         const deptName = departments.find(d => d.id === log.departmentId)?.name || '';
@@ -108,6 +124,7 @@ export const useGoogleCalendar = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
+            if (handleAuthError(res)) return [];
             if (!res.ok) return [];
             const data = await res.json();
             return data.items || [];
@@ -183,6 +200,11 @@ export const useGoogleCalendar = () => {
                         body: JSON.stringify(eventBody)
                     });
 
+                    if (handleAuthError(updateRes)) {
+                        setIsSyncing(false);
+                        return { status: 'COLLISION_ERROR' }; // or another status to stop
+                    }
+
                     if (updateRes.status === 404) {
                         // Gone, create new
                         // fall through to create logic below? or duplicate?
@@ -210,6 +232,7 @@ export const useGoogleCalendar = () => {
                 body: JSON.stringify(eventBody)
             });
 
+            if (handleAuthError(res)) throw new Error("Authentication failed");
             if (!res.ok) throw new Error("Failed to create event");
             const created = await res.json();
 
