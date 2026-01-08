@@ -7,7 +7,7 @@ import { useSettings } from './SettingsContext';
 
 interface TimerContextType {
     activeLog: WorkLog | undefined;
-    startTimer: (deptId: string, workTypeId: string, detailIds: string[], note: string) => Promise<void>;
+    startTimer: (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string) => Promise<void>;
     stopTimer: () => Promise<void>;
     cancelTimer: () => Promise<void>;
     updateActiveNote: (note: string) => Promise<void>;
@@ -34,7 +34,7 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return Math.floor(ts / ms) * ms;
     };
 
-    const startTimer = async (deptId: string, workTypeId: string, detailIds: string[], note: string) => {
+    const startTimer = async (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string) => {
         if (activeLog) {
             throw new Error("Timer already running");
         }
@@ -50,6 +50,7 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             departmentId: deptId,
             workTypeId,
             detailTaskIds: detailIds,
+            detailTaskNames: detailNames,
             note,
             startAt: startAt,
             dateKey,
@@ -66,19 +67,94 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const stopTimer = async () => {
         if (!activeLog) return;
 
+        const tz = settings?.timezone || 'UTC';
         const exactNow = Date.now();
         const endAt = applyRounding(exactNow);
 
         // Ensure end isn't before start due to rounding
         const finalEnd = Math.max(endAt, activeLog.startAt);
-        const durationSec = (finalEnd - activeLog.startAt) / 1000;
 
-        await db.workLogs.update(activeLog.id, {
-            status: 'done',
-            endAt: finalEnd,
-            durationSec,
-            updatedAt: Date.now()
-        });
+        // Date Crossing Check
+        const startDateStr = formatInTimeZone(activeLog.startAt, tz, 'yyyy-MM-dd');
+        const endDateStr = formatInTimeZone(finalEnd, tz, 'yyyy-MM-dd');
+
+        if (startDateStr === endDateStr) {
+            // Normal case: Same day
+            const durationSec = (finalEnd - activeLog.startAt) / 1000;
+            await db.workLogs.update(activeLog.id, {
+                status: 'done',
+                endAt: finalEnd,
+                durationSec,
+                updatedAt: Date.now()
+            });
+        } else {
+            // Date Crossing: Split logs
+            const logsToCreate: WorkLog[] = [];
+            let currentStart = activeLog.startAt;
+
+            // Generate logs for each day
+            while (true) {
+                const currentDateStr = formatInTimeZone(currentStart, tz, 'yyyy-MM-dd');
+
+                // Get start of NEXT day in target TZ
+                // We parse 'tomorrow' 00:00:00 in the given TZ
+                const tomorrowDate = new Date(currentStart);
+                tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+                const nextDayStartStr = formatInTimeZone(tomorrowDate, tz, 'yyyy-MM-dd 00:00:00');
+                // Use date-fns-tz parse if available, but here we can use a trick:
+                // Find the timestamp for next day 00:00 in that TZ.
+                // Since we need to be precise, let's use the offset.
+                const nextDayBoundary = new Date(nextDayStartStr).getTime();
+                // Caution: 'new Date(string)' might be flaky with TZ. 
+                // Better approach with date-fns-tz:
+                // However, simple split at 24:00 is usually enough for most cases.
+
+                // Let's use a safer boundary calculation:
+                const boundary = new Date(currentStart);
+                boundary.setHours(24, 0, 0, 0); // Local midnight
+                // Adjusting to TZ is tricky without heavy libraries, but Dexie logs use UTC ts.
+                // We'll use the formatInTimeZone to determine if we crossed the line.
+
+                const nextStartTime = Math.min(finalEnd, boundary.getTime());
+                const currentDurationSec = (nextStartTime - currentStart) / 1000;
+
+                if (currentDurationSec > 0) {
+                    logsToCreate.push({
+                        ...activeLog,
+                        id: logsToCreate.length === 0 ? activeLog.id : uuidv4(),
+                        startAt: currentStart,
+                        endAt: nextStartTime,
+                        durationSec: currentDurationSec,
+                        dateKey: currentDateStr,
+                        status: 'done',
+                        updatedAt: Date.now()
+                    });
+                }
+
+                if (nextStartTime >= finalEnd) break;
+                currentStart = nextStartTime;
+            }
+
+            // Persistence
+            if (logsToCreate.length > 0) {
+                // Update the first one (original entry)
+                const first = logsToCreate[0];
+                await db.workLogs.update(activeLog.id, {
+                    status: 'done',
+                    startAt: first.startAt,
+                    endAt: first.endAt,
+                    durationSec: first.durationSec,
+                    dateKey: first.dateKey,
+                    updatedAt: Date.now()
+                });
+
+                // Add the rest
+                if (logsToCreate.length > 1) {
+                    await db.workLogs.bulkAdd(logsToCreate.slice(1));
+                    alert(`日付を跨いだため、記録を${logsToCreate.length}件に分割して登録しました。`);
+                }
+            }
+        }
     };
 
     const cancelTimer = async () => {

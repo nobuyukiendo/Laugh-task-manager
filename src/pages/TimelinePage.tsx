@@ -6,14 +6,20 @@ import { useSettings } from '../contexts/SettingsContext';
 import { Card, Button, Input, Select, Label } from '../components/ui';
 import { format, parse } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { ChevronLeft, ChevronRight, Trash2, Edit2, UploadCloud, CalendarCheck, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit2, UploadCloud, CalendarCheck, Plus, X, Book, History as HistoryIcon } from 'lucide-react';
 import { EditLogModal } from '../components/EditLogModal';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLocation } from 'react-router-dom';
 
 export const TimelinePage: React.FC = () => {
+    const location = useLocation();
+    const [justAddedLogId, setJustAddedLogId] = useState<string | null>(() => {
+        return (location.state as any)?.highlightedLogId || null;
+    });
+
     const { settings } = useSettings();
-    const { departments, workTypes, detailTasks } = useMaster();
+    const { departments, workTypes, detailTasks, recentDetailTasks, addDetailTask, addRecentDetailTask } = useMaster();
 
     // Date Navigation
     const [viewDate, setViewDate] = useState(new Date());
@@ -23,6 +29,25 @@ export const TimelinePage: React.FC = () => {
 
     const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
     const [showManualEntry, setShowManualEntry] = useState(false);
+
+    // Scroll & Highlight Effect
+    React.useEffect(() => {
+        if (justAddedLogId) {
+            // Scroll to the element
+            setTimeout(() => {
+                const el = document.getElementById(`log-${justAddedLogId}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+
+            // Flash effect for 3 seconds
+            const timer = setTimeout(() => {
+                setJustAddedLogId(null);
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [justAddedLogId]);
     const [manualForm, setManualForm] = useState({
         startTime: '',
         endTime: '',
@@ -31,11 +56,16 @@ export const TimelinePage: React.FC = () => {
         note: ''
     });
 
-    // Derive date key
-    // CAUTION: JS Date is local, but we need to respect formatInTimeZone if user selected a different TZ.
-    // For simplicity, we use the selected date as "YYYY-MM-DD" string in local or ensure consistent handling.
-    // The DB stores `dateKey` based on the user's preferred TZ at the time of creation.
-    // To query correctly, we should probably generate dateKey from the selected Date object using the *current* settings.
+    const [manualDetailNames, setManualDetailNames] = useState<string[]>([]);
+    const [manualDetailInput, setManualDetailInput] = useState('');
+    const [saveToMaster, setSaveToMaster] = useState(false);
+
+    const normalizeTaskName = (name: string) => {
+        return name
+            .replace(/　/g, ' ') // 全角スペースを半角に
+            .replace(/\s+/g, ' ') // 連続する空白を1つに
+            .trim();
+    };
 
     const timezone = settings?.timezone || 'UTC';
     const dateKey = settings ? formatInTimeZone(viewDate, timezone, 'yyyy-MM-dd') : format(viewDate, 'yyyy-MM-dd');
@@ -43,8 +73,7 @@ export const TimelinePage: React.FC = () => {
     const logs = useLiveQuery(async () => {
         return await db.workLogs
             .where('dateKey').equals(dateKey)
-            .and(l => l.status === 'done' || l.status === 'canceled') // Show done/canceled, running is elsewhere? or include?
-            // Usually running is shown separately or at top.
+            .and(l => l.status === 'done' || l.status === 'canceled')
             .sortBy('startAt');
     }, [dateKey]);
 
@@ -75,19 +104,15 @@ export const TimelinePage: React.FC = () => {
             if (log.status !== 'done') continue;
 
             try {
-                // First attempt
                 const result = await syncLog(log, false);
-
                 if (result.status === 'CREATED') createdCount++;
                 else if (result.status === 'UPDATED') updatedCount++;
                 else if (result.status === 'COLLISION_ERROR') {
                     const event = result.collisionEvents ? result.collisionEvents[0] : null;
                     const logStart = formatInTimeZone(log.startAt, log.timezone, 'yyyy/MM/dd HH:mm');
                     const logEnd = log.endAt ? formatInTimeZone(log.endAt, log.timezone, 'HH:mm') : '??:??';
-
                     const msg = `時間が重複する予定があるため、登録できません。\n\n【登録しようとした履歴】\n${logStart} - ${logEnd}\n\n【重複している予定】\n${event?.summary}\n(${new Date(event?.start.dateTime || '').toLocaleString()} - ${new Date(event?.end.dateTime || '').toLocaleString()})\n\n時間を修正してください。`;
                     alert(msg);
-                    // Do not increment counts, do not proceed.
                 }
             } catch (e) {
                 console.error("Sync failed for log", log.id, e);
@@ -96,7 +121,6 @@ export const TimelinePage: React.FC = () => {
         alert(`転記完了\n作成: ${createdCount}件\n更新: ${updatedCount}件`);
     };
 
-    // Single Sync Button Handler
     const handleSingleSync = async (log: WorkLog) => {
         try {
             const result = await syncLog(log, false);
@@ -106,13 +130,32 @@ export const TimelinePage: React.FC = () => {
                 const event = result.collisionEvents ? result.collisionEvents[0] : null;
                 const logStart = formatInTimeZone(log.startAt, log.timezone, 'yyyy/MM/dd HH:mm');
                 const logEnd = log.endAt ? formatInTimeZone(log.endAt, log.timezone, 'HH:mm') : '??:??';
-
                 const msg = `時間が重複する予定があるため、登録できません。\n\n【登録しようとした履歴】\n${logStart} - ${logEnd}\n\n【重複している予定】\n${event?.summary}\n(${new Date(event?.start.dateTime || '').toLocaleString()} - ${new Date(event?.end.dateTime || '').toLocaleString()})\n\n時間を修正してください。`;
                 alert(msg);
             }
         } catch (e) {
             alert("転記に失敗しました");
         }
+    };
+
+    const addManualDetail = async (input: string) => {
+        const normalized = normalizeTaskName(input);
+        if (!normalized) return;
+
+        if (!manualDetailNames.includes(normalized)) {
+            setManualDetailNames(prev => [...prev, normalized]);
+            if (saveToMaster) {
+                const exists = detailTasks.find(d => normalizeTaskName(d.name) === normalized);
+                if (!exists) {
+                    await addDetailTask({
+                        name: normalized,
+                        workTypeId: manualForm.workTypeId || ''
+                    });
+                }
+            }
+            await addRecentDetailTask(normalized, manualForm.workTypeId || '');
+        }
+        setManualDetailInput('');
     };
 
     if (!logs) return <div className="p-8 text-center text-slate-500">Loading...</div>;
@@ -138,7 +181,6 @@ export const TimelinePage: React.FC = () => {
                 </div>
             )}
 
-            {/* Manual Entry Toggle */}
             <div className="flex justify-end">
                 <Button
                     size="sm"
@@ -150,7 +192,6 @@ export const TimelinePage: React.FC = () => {
                 </Button>
             </div>
 
-            {/* Manual Entry Form */}
             {showManualEntry && (
                 <Card className="p-4 space-y-4 border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 shadow-md">
                     <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">作業を手動で追加</h3>
@@ -174,32 +215,94 @@ export const TimelinePage: React.FC = () => {
                             />
                         </div>
                     </div>
-                    <div>
-                        <Label className="text-slate-600 dark:text-slate-400 font-bold">部門 *</Label>
-                        <Select
-                            value={manualForm.deptId}
-                            onChange={e => setManualForm({ ...manualForm, deptId: e.target.value })}
-                            className="bg-white dark:bg-black text-slate-900 dark:text-white border-slate-300 dark:border-slate-600 font-bold"
-                        >
-                            <option value="">(選択してください)</option>
-                            {departments.filter(d => d.enabled).map(d => (
-                                <option key={d.id} value={d.id} className="text-slate-900 dark:text-white bg-white dark:bg-black">{d.name}</option>
-                            ))}
-                        </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label className="text-slate-600 dark:text-slate-400 font-bold">部門 *</Label>
+                            <Select
+                                value={manualForm.deptId}
+                                onChange={e => setManualForm({ ...manualForm, deptId: e.target.value })}
+                                className="bg-white dark:bg-black text-slate-900 dark:text-white border-slate-300 dark:border-slate-600 font-bold"
+                            >
+                                <option value="">(選択してください)</option>
+                                {departments.filter(d => d.enabled).map(d => (
+                                    <option key={d.id} value={d.id}>{d.name}</option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div>
+                            <Label className="text-slate-600 dark:text-slate-400 font-bold">作業種別 (任意)</Label>
+                            <Select
+                                value={manualForm.workTypeId}
+                                onChange={e => setManualForm({ ...manualForm, workTypeId: e.target.value })}
+                                className="bg-white dark:bg-black text-slate-900 dark:text-white border-slate-300 dark:border-slate-600 font-bold"
+                            >
+                                <option value="">(未選択)</option>
+                                {workTypes.filter(w => w.enabled).map(w => (
+                                    <option key={w.id} value={w.id}>{w.name}</option>
+                                ))}
+                            </Select>
+                        </div>
                     </div>
-                    <div>
-                        <Label className="text-slate-600 dark:text-slate-400 font-bold">作業種別 (任意)</Label>
-                        <Select
-                            value={manualForm.workTypeId}
-                            onChange={e => setManualForm({ ...manualForm, workTypeId: e.target.value })}
-                            className="bg-white dark:bg-black text-slate-900 dark:text-white border-slate-300 dark:border-slate-600 font-bold"
-                        >
-                            <option value="">(未選択)</option>
-                            {workTypes.filter(w => w.enabled).map(w => (
-                                <option key={w.id} value={w.id} className="text-slate-900 dark:text-white bg-white dark:bg-black">{w.name}</option>
+
+                    {/* Detail Task Input */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <Label className="text-slate-600 dark:text-slate-400 font-bold block mb-0">詳細作業</Label>
+                            <label className="flex items-center gap-2 cursor-pointer text-[10px] font-semibold text-cyan-600 dark:text-cyan-400">
+                                <input
+                                    type="checkbox"
+                                    checked={saveToMaster}
+                                    onChange={e => setSaveToMaster(e.target.checked)}
+                                    className="w-3 h-3 rounded border-cyan-300 text-cyan-500 focus:ring-cyan-200"
+                                />
+                                マスタに保存
+                            </label>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            {manualDetailNames.map((name, i) => (
+                                <span key={i} className="flex items-center gap-1 px-2 py-1 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-800 dark:text-cyan-200 rounded-full text-xs">
+                                    {name}
+                                    <button type="button" onClick={() => setManualDetailNames(prev => prev.filter((_, idx) => idx !== i))}><X size={12} /></button>
+                                </span>
                             ))}
-                        </Select>
+                        </div>
+
+                        <div className="flex gap-2">
+                            <Input
+                                value={manualDetailInput}
+                                onChange={e => setManualDetailInput(e.target.value)}
+                                placeholder="作業名を追加..."
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') { e.preventDefault(); addManualDetail(manualDetailInput); }
+                                }}
+                                className="flex-1 bg-white dark:bg-black border-slate-300 dark:border-slate-600"
+                            />
+                            <div className="relative">
+                                <Select
+                                    value=""
+                                    onChange={e => e.target.value && addManualDetail(e.target.value)}
+                                    className="w-10 h-full opacity-0 absolute inset-0 cursor-pointer z-10"
+                                >
+                                    <option value="" disabled className="font-bold text-slate-500">【マスタ】</option>
+                                    {detailTasks.filter(d => d.enabled).map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                                </Select>
+                                <Button variant="secondary" className="h-full px-2"><Book size={16} /></Button>
+                            </div>
+                            <div className="relative">
+                                <Select
+                                    value=""
+                                    onChange={e => e.target.value && addManualDetail(e.target.value)}
+                                    className="w-10 h-full opacity-0 absolute inset-0 cursor-pointer z-10"
+                                >
+                                    <option value="" disabled className="font-bold text-slate-500">【履歴】</option>
+                                    {recentDetailTasks.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                                </Select>
+                                <Button variant="secondary" className="h-full px-2"><HistoryIcon size={16} /></Button>
+                            </div>
+                        </div>
                     </div>
+
                     <Button
                         onClick={async () => {
                             if (!manualForm.startTime || !manualForm.endTime || !manualForm.deptId) {
@@ -210,21 +313,25 @@ export const TimelinePage: React.FC = () => {
                             const startAt = parse(`${today} ${manualForm.startTime}`, 'yyyy-MM-dd HH:mm', new Date()).getTime();
                             const endAt = parse(`${today} ${manualForm.endTime}`, 'yyyy-MM-dd HH:mm', new Date()).getTime();
 
-                            // Simple validation
                             if (endAt <= startAt) {
                                 alert('終了時刻は開始時刻より後である必要があります');
                                 return;
                             }
 
                             const durationSec = Math.floor((endAt - startAt) / 1000);
+                            const finalNames = manualDetailNames.map(normalizeTaskName).filter(Boolean);
+                            const derivedIds = finalNames.map(name =>
+                                detailTasks.find(d => normalizeTaskName(d.name) === name)?.id
+                            ).filter(Boolean) as string[];
 
                             await db.workLogs.add({
                                 id: crypto.randomUUID(),
                                 dateKey: today,
                                 departmentId: manualForm.deptId,
                                 workTypeId: manualForm.workTypeId || '',
-                                detailTaskIds: [],
-                                note: manualForm.note,
+                                detailTaskIds: derivedIds,
+                                detailTaskNames: finalNames,
+                                note: '', // Removed note field
                                 startAt,
                                 endAt,
                                 durationSec,
@@ -234,6 +341,7 @@ export const TimelinePage: React.FC = () => {
                                 timezone: timezone
                             });
                             setManualForm({ startTime: '', endTime: '', deptId: '', workTypeId: '', note: '' });
+                            setManualDetailNames([]);
                             setShowManualEntry(false);
                         }}
                         disabled={!manualForm.startTime || !manualForm.endTime || !manualForm.deptId}
@@ -252,16 +360,15 @@ export const TimelinePage: React.FC = () => {
                 )}
 
                 {logs.map(log => {
-                    // Time Formatting
                     const startStr = formatInTimeZone(log.startAt, timezone, 'HH:mm');
                     const endStr = log.endAt ? formatInTimeZone(log.endAt, timezone, 'HH:mm') : '??:??';
                     const durationMin = Math.floor((log.durationSec || 0) / 60);
 
                     return (
-                        <div key={log.id} className="group relative pl-4 border-l-2 border-slate-700 hover:border-cyan-500 transition-colors">
-                            <div className="absolute -left-[5px] top-4 w-2 h-2 rounded-full bg-slate-700 group-hover:bg-cyan-500 transition-colors" />
+                        <div key={log.id} id={`log-${log.id}`} className={`group relative pl-4 border-l-2 ${justAddedLogId === log.id ? 'border-pink-500 ring-2 ring-pink-500 ring-opacity-50 rounded-r-lg' : 'border-slate-700'} hover:border-cyan-500 transition-all duration-500`}>
+                            <div className={`absolute -left-[5px] top-4 w-2 h-2 rounded-full ${justAddedLogId === log.id ? 'bg-pink-500 animate-ping' : 'bg-slate-700'} group-hover:bg-cyan-500 transition-colors`} />
 
-                            <Card className="p-4 flex flex-col gap-2 bg-white dark:bg-slate-900 data-[dark]:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm dark:shadow-none border border-slate-200 dark:border-slate-800">
+                            <Card className={`p-4 flex flex-col gap-2 ${justAddedLogId === log.id ? 'bg-pink-50 dark:bg-pink-900/20' : 'bg-white dark:bg-slate-900'} data-[dark]:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm dark:shadow-none border border-slate-200 dark:border-slate-800`}>
                                 <div className="flex justify-between items-start">
                                     <div className="text-xs font-mono text-slate-400">
                                         {startStr} - {endStr} <span className="text-slate-500">({durationMin}min)</span>
@@ -282,7 +389,11 @@ export const TimelinePage: React.FC = () => {
                                         </span>
                                     </div>
                                     <div className="flex flex-wrap gap-2 mb-2">
-                                        {log.detailTaskIds.length > 0 ? (
+                                        {(log.detailTaskNames && log.detailTaskNames.length > 0) ? (
+                                            <span className="px-2 py-0.5 bg-slate-800 dark:bg-slate-700 rounded text-xs text-slate-300">
+                                                {log.detailTaskNames.join('、')}
+                                            </span>
+                                        ) : log.detailTaskIds.length > 0 ? (
                                             log.detailTaskIds.map(did => {
                                                 const dName = detailTasks.find(d => d.id === did)?.name;
                                                 return dName && (
@@ -302,7 +413,6 @@ export const TimelinePage: React.FC = () => {
                                     )}
                                 </div>
 
-                                {/* Sync Status / Button */}
                                 <div className="mt-2 flex justify-end">
                                     <Button
                                         size="sm"

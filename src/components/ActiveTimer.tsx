@@ -29,12 +29,12 @@ export const ActiveTimer: React.FC<ActiveTimerProps> = ({ log, onStop }) => {
     return (
         <Card className="border-t-4 border-t-pink-500 animate-pulse-subtle bg-white dark:bg-slate-900 border-pink-100 dark:border-pink-900/20 shadow-xl shadow-pink-100 dark:shadow-none">
             <div className="text-center space-y-4 py-8">
-                <div className="text-slate-500 dark:text-slate-400 font-bold tracking-widest text-sm uppercase">Currently Working</div>
+                <div className="text-slate-500 dark:text-slate-400 font-bold tracking-widest text-sm uppercase">計測中</div>
                 <div className="text-6xl font-black font-mono tracking-tighter text-slate-800 dark:text-slate-100 tabular-nums">
                     {formatDuration(duration)}
                 </div>
                 <div className="text-slate-400 dark:text-slate-500 text-sm font-['Zen_Maru_Gothic']">
-                    Started at {format(log.startAt, 'HH:mm')}
+                    開始時刻 {format(log.startAt, 'HH:mm')}
                 </div>
             </div>
 
@@ -45,7 +45,7 @@ export const ActiveTimer: React.FC<ActiveTimerProps> = ({ log, onStop }) => {
                     onClick={onStop}
                     className="w-full h-16 text-xl rounded-2xl bg-slate-800 dark:bg-white text-white dark:text-slate-900 hover:scale-[1.02] active:scale-95 transition-all shadow-lg"
                 >
-                    <StopCircle className="mr-2" /> Finish
+                    <StopCircle className="mr-2" /> 終了
                 </Button>
             </div>
         </Card>

@@ -1,12 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, Department, WorkType, DetailTask } from '../db';
+import { db, Department, WorkType, DetailTask, RecentDetailTask } from '../db';
 
 interface MasterContextType {
     departments: Department[];
     workTypes: WorkType[];
     detailTasks: DetailTask[];
+    recentDetailTasks: RecentDetailTask[];
 
     // Basic CRUD... simplified for now, components can also use db directly if complex
     addDepartment: (dept: Department) => Promise<string>;
@@ -22,6 +23,7 @@ interface MasterContextType {
     updateDetailTask: (id: string, u: Partial<DetailTask>) => Promise<number>;
     deleteDetailTask: (id: string) => Promise<void>;
 
+    addRecentDetailTask: (name: string, workTypeId: string) => Promise<string>;
 }
 
 const MasterContext = createContext<MasterContextType | undefined>(undefined);
@@ -30,6 +32,7 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const departments = useLiveQuery(() => db.departments.orderBy('order').toArray(), []) || [];
     const workTypes = useLiveQuery(() => db.workTypes.orderBy('order').toArray(), []) || [];
     const detailTasks = useLiveQuery(() => db.detailTasks.orderBy('order').toArray(), []) || [];
+    const recentDetailTasks = useLiveQuery(() => db.recentDetailTasks.orderBy('lastUsedAt').reverse().toArray(), []) || [];
 
     const addDepartment = async (dept: Department) => {
         return await db.departments.add(dept);
@@ -68,14 +71,48 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const updateDetailTask = async (id: string, u: Partial<DetailTask>) => db.detailTasks.update(id, u);
     const deleteDetailTask = async (id: string) => { await db.detailTasks.delete(id); };
 
+    // RecentDetailTasks (LRU 200)
+    const addRecentDetailTask = async (name: string, workTypeId: string) => {
+        const existing = await db.recentDetailTasks
+            .where({ name, workTypeId })
+            .first();
+
+        const now = Date.now();
+        if (existing) {
+            await db.recentDetailTasks.update(existing.id, { lastUsedAt: now });
+            return existing.id;
+        } else {
+            const id = uuidv4();
+            await db.recentDetailTasks.add({
+                id,
+                name,
+                workTypeId,
+                lastUsedAt: now
+            });
+
+            // Prune if > 30
+            const count = await db.recentDetailTasks.count();
+            if (count > 30) {
+                const oldest = await db.recentDetailTasks
+                    .orderBy('lastUsedAt')
+                    .limit(count - 30)
+                    .toArray();
+                await db.recentDetailTasks.bulkDelete(oldest.map(o => o.id));
+            }
+            return id;
+        }
+    };
+
     return (
         <MasterContext.Provider value={{
             departments,
             workTypes,
             detailTasks,
+            recentDetailTasks,
             addDepartment, updateDepartment, deleteDepartment,
             addWorkType, updateWorkType, deleteWorkType,
-            addDetailTask, updateDetailTask, deleteDetailTask
+            addDetailTask, updateDetailTask, deleteDetailTask,
+            addRecentDetailTask
         }}>
             {children}
         </MasterContext.Provider>

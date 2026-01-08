@@ -22,6 +22,13 @@ export interface DetailTask {
     enabled: boolean;
 }
 
+export interface RecentDetailTask {
+    id: string;
+    name: string;
+    workTypeId: string;
+    lastUsedAt: number;
+}
+
 export type LogStatus = 'running' | 'done' | 'canceled';
 
 export interface WorkLog {
@@ -34,7 +41,8 @@ export interface WorkLog {
 
     departmentId: string;
     workTypeId: string;
-    detailTaskIds: string[]; // Array of IDs
+    detailTaskIds: string[]; // Array of IDs (historical)
+    detailTaskNames?: string[]; // Array of names (new, for non-volatile aggregation)
 
     note: string;
     startAt: number; // Timestamp
@@ -70,6 +78,7 @@ class AppDatabase extends Dexie {
     departments!: Table<Department, string>;
     workTypes!: Table<WorkType, string>;
     detailTasks!: Table<DetailTask, string>;
+    recentDetailTasks!: Table<RecentDetailTask, string>;
     workLogs!: Table<WorkLog, string>;
     settings!: Table<Settings, string>;
 
@@ -82,6 +91,11 @@ class AppDatabase extends Dexie {
             detailTasks: 'id, workTypeId, name, order, enabled',
             workLogs: 'id, status, dateKey, departmentId, workTypeId, startAt, endAt',
             settings: 'key'
+        });
+
+        this.version(2).stores({
+            recentDetailTasks: 'id, name, workTypeId, lastUsedAt',
+            workLogs: 'id, status, dateKey, departmentId, workTypeId, startAt, endAt' // Re-listing is required by Dexie for updated stores (though optional if no schema change, we added field to interface only)
         });
     }
 }

@@ -73,7 +73,11 @@ export const SearchPage: React.FC = () => {
                                     </span>
                                 </div>
                                 <div className="flex gap-1 mt-1">
-                                    {log.detailTaskIds.map(did => (
+                                    {(log.detailTaskNames && log.detailTaskNames.length > 0) ? (
+                                        <span className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-[10px] text-slate-600 dark:text-slate-300">
+                                            {log.detailTaskNames.join('、')}
+                                        </span>
+                                    ) : log.detailTaskIds.map(did => (
                                         <span key={did} className="px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 rounded text-[10px] text-slate-600 dark:text-slate-300">
                                             {detailTasks.find(dt => dt.id === did)?.name || did}
                                         </span>

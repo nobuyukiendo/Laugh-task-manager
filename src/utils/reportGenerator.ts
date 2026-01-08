@@ -10,10 +10,20 @@ interface ReportData {
     endDate: Date;
 }
 
-export const generateWeeklyReport = ({ logs, departments, workTypes, detailTasks, startDate, endDate }: ReportData): string => {
+export const getWeeklyHeader = (startDate: Date, endDate: Date): string => {
+    const startStr = format(startDate, 'M月d日');
+    const endStr = format(endDate, 'M月d日');
+    return `【週次レビュー】\n${startStr}～${endStr}`;
+};
+
+export const getDailyCommentsAnchor = (): string => {
+    return '●先週試したこと・工夫したことの結果と数値を書いてみましょう\n--------------------------------------------------';
+};
+
+export const getWeeklySummary = ({ logs, departments, workTypes, detailTasks }: Omit<ReportData, 'startDate' | 'endDate'>): string => {
     // Helpers to resolve names
     const getDeptName = (id: string) => departments.find(d => d.id === id)?.name || '不明な部門';
-    const getWTName = (id: string) => workTypes.find(w => w.id === id)?.name || '未分類'; // Handle empty too?
+    const getWTName = (id: string) => workTypes.find(w => w.id === id)?.name || '未分類';
     const getDTName = (id: string) => detailTasks.find(d => d.id === id)?.name || '不明';
 
     // 1. Total Duration
@@ -24,7 +34,6 @@ export const generateWeeklyReport = ({ logs, departments, workTypes, detailTasks
     const deptMap: Record<string, number> = {};
     const wtMap: Record<string, number> = {};
     const dtMap: Record<string, number> = {};
-    const notes: string[] = [];
 
     logs.forEach(l => {
         const sec = l.durationSec || 0;
@@ -37,28 +46,25 @@ export const generateWeeklyReport = ({ logs, departments, workTypes, detailTasks
         const wName = l.workTypeId ? getWTName(l.workTypeId) : '未選択';
         wtMap[wName] = (wtMap[wName] || 0) + sec;
 
-        // Details - Split multiple logic?
-        // User wants "Detail Task Sum". If a log has multiple details, how do we split time?
-        // Simple approach: Divide time equally or just count occurrence?
-        // Time tracking usually implies the duration applies to the set of details.
-        // Let's attribute the full duration to the combo? Or simply list top details by frequency?
-        // Request says "Detail Task Total". Let's assume full duration for simplicity, or 
-        // if multiple, we can't easily split. Let's tag them as "Compound" or just count frequency.
-        // BETTER: Just list unique details found and maybe total duration where they appeared.
-        // OR: Divide duration by count of details.
-        if (l.detailTaskIds.length > 0) {
-            const splitSec = sec / l.detailTaskIds.length;
-            l.detailTaskIds.forEach(did => {
-                const dtName = getDTName(did);
-                dtMap[dtName] = (dtMap[dtName] || 0) + splitSec;
+        // Detail Task Aggregation
+        // Use detailTaskNames if present, otherwise fallback to detailTaskIds lookup
+        let namesToAggregate: string[] = [];
+        if (l.detailTaskNames && l.detailTaskNames.length > 0) {
+            namesToAggregate = l.detailTaskNames;
+        } else if (l.detailTaskIds.length > 0) {
+            namesToAggregate = l.detailTaskIds.map(did => {
+                const master = detailTasks.find(d => d.id === did);
+                return master ? master.name : '不明 (マスタ削除)';
+            });
+        }
+
+        if (namesToAggregate.length > 0) {
+            const splitSec = sec / namesToAggregate.length;
+            namesToAggregate.forEach(name => {
+                dtMap[name] = (dtMap[name] || 0) + splitSec;
             });
         } else {
             dtMap['(詳細なし)'] = (dtMap['(詳細なし)'] || 0) + sec;
-        }
-
-        // Notes
-        if (l.note) {
-            notes.push(l.note);
         }
     });
 
@@ -75,37 +81,11 @@ export const generateWeeklyReport = ({ logs, departments, workTypes, detailTasks
     const wtStr = formatMap(wtMap);
     const dtStr = formatMap(dtMap, 8); // Top 8 details
 
-    // Unique notes
-    const uniqueNotes = Array.from(new Set(notes)).filter(Boolean);
-    const notesStr = uniqueNotes.length > 0
-        ? uniqueNotes.map(n => `・${n}`).join('\n')
-        : '・(なし)';
+    return `【週合計】 ${totalHours} 時間\n\n【部門別】\n${deptStr}\n\n【作業種別】\n${wtStr}\n\n【詳細作業 (Top 8)】\n${dtStr}`;
+};
 
-
-    // 3. Build Template
-    const startStr = format(startDate, 'M月d日');
-    const endStr = format(endDate, 'M月d日');
-
-    return `【週次レビュー】
-${startStr}～${endStr}
-
-●先週試したこと・工夫したことの結果と数値を書いてみましょう
---------------------------------------------------
-【週合計】 ${totalHours} 時間
-
-【部門別】
-${deptStr}
-
-【作業種別】
-${wtStr}
-
-【詳細作業 (Top 8)】
-${dtStr}
-
-【自由入力メモ】
-${notesStr}
---------------------------------------------------
-
+export const getDefaultEditorialTemplate = (): string => {
+    return `
 ●試したこと・工夫したことの中で上手くいったことはありますか？
 ・施策：
 ・結果：
@@ -137,4 +117,13 @@ ${notesStr}
 【今週施策】※数値目標を設定できる業務は数値も設定してみましょう♪
 (ここに入力)
 `;
+};
+
+export const generateWeeklyReport = (data: ReportData): string => {
+    const header = getWeeklyHeader(data.startDate, data.endDate);
+    const anchor = getDailyCommentsAnchor();
+    const summary = getWeeklySummary(data);
+    const editorial = getDefaultEditorialTemplate();
+
+    return `${header}\n\n${anchor}\n${summary}\n--------------------------------------------------\n${editorial}`;
 };

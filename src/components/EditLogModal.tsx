@@ -5,10 +5,10 @@ import { useMaster } from '../contexts/MasterContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { formatInTimeZone, toDate } from 'date-fns-tz';
-import { X } from 'lucide-react';
+import { X, Book, History as HistoryIcon } from 'lucide-react';
 
 export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ log, onClose }) => {
-    const { departments, workTypes, detailTasks } = useMaster();
+    const { departments, workTypes, detailTasks, recentDetailTasks, addDetailTask, addRecentDetailTask } = useMaster();
     const { settings } = useSettings();
     const { syncLog } = useGoogleCalendar();
     const tz = settings?.timezone || 'UTC';
@@ -16,15 +16,16 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
     // Form State
     const [deptId, setDeptId] = useState(log.departmentId);
     const [workTypeId, setWorkTypeId] = useState(log.workTypeId);
-    const [detailIds, setDetailIds] = useState<string[]>(log.detailTaskIds);
-    const [note, setNote] = useState(log.note);
-    const [detailInput, setDetailInput] = useState(''); // For adding new via search
+    const [detailNames, setDetailNames] = useState<string[]>(log.detailTaskNames || []);
+    const [detailInput, setDetailInput] = useState('');
+    const [saveToMaster, setSaveToMaster] = useState(false);
 
-    // Date Handling: ISO String for input type="datetime-local"
-    // Format: "YYYY-MM-DDTHH:mm"
-    // We need to convert timestamp -> TZ adjusted local string -> Input value
-    // This is tricky without date-fns-tz helpers for "format to local string of specific TZ"
-    // But formatInTimeZone does exactly that.
+    const normalizeTaskName = (name: string) => {
+        return name
+            .replace(/　/g, ' ') // 全角スペースを半角に
+            .replace(/\s+/g, ' ') // 連続する空白を1つに
+            .trim();
+    };
 
     const toLocalISO = (ts: number | undefined) => {
         if (!ts) return '';
@@ -35,24 +36,15 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
     const [endStr, setEndStr] = useState(toLocalISO(log.endAt));
     const [error, setError] = useState('');
 
-    // Remove filtering by WorkType
-    // const filteredDetails = detailTasks.filter(d => d.workTypeId === workTypeId);
-
     const handleSave = async () => {
         setError('');
         if (!deptId) { setError('部門は必須です'); return; }
         if (!startStr) { setError('開始時間は必須です'); return; }
         if (!endStr) { setError('終了時間は必須です'); return; }
 
-        // Parse back to timestamp
-        // We treat the input string as "Time in Target TZ".
-        // We need to construct a Date object that represents that time in that TZ, then get timestamp.
-        // toDate (from date-fns-tz) helps parse ISO string as if it's in a specific TZ.
-
         const startTs = toDate(startStr, { timeZone: tz }).getTime();
         const endTs = toDate(endStr, { timeZone: tz }).getTime();
 
-        // Truncate seconds logic: floor to minute
         const sDate = new Date(startTs); sDate.setSeconds(0, 0);
         const eDate = new Date(endTs); eDate.setSeconds(0, 0);
         const finalStart = sDate.getTime();
@@ -65,13 +57,24 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
 
         const durationSec = (finalEnd - finalStart) / 1000;
 
+        // Final Normalized Names
+        const finalNames = [...detailNames];
+        // Handle pending input if any? 
+        // Let's assume they must click "Add" or just use what's inChips.
+
+        // Derive IDs
+        const derivedIds = finalNames.map(name =>
+            detailTasks.find(d => normalizeTaskName(d.name) === normalizeTaskName(name))?.id
+        ).filter(Boolean) as string[];
+
         // Update Object
         const updatedLog: WorkLog = {
             ...log,
             departmentId: deptId,
             workTypeId: workTypeId,
-            detailTaskIds: detailIds,
-            note,
+            detailTaskIds: derivedIds,
+            detailTaskNames: finalNames,
+            note: '', // Always empty as per user request to remove it
             startAt: finalStart,
             endAt: finalEnd,
             durationSec,
@@ -81,8 +84,9 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
         await db.workLogs.update(log.id, {
             departmentId: deptId,
             workTypeId: workTypeId,
-            detailTaskIds: detailIds,
-            note,
+            detailTaskIds: derivedIds,
+            detailTaskNames: finalNames,
+            note: '',
             startAt: finalStart,
             endAt: finalEnd,
             durationSec,
@@ -92,17 +96,37 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
         // Update Calendar if synced
         if (log.calendar?.synced && log.calendar.eventId) {
             try {
+                // Remove alert on failure as requested
                 await syncLog(updatedLog);
             } catch (e) {
-                alert('カレンダー同期の更新に失敗しました');
+                console.error('Calendar sync failed during edit (silently ignored)', e);
             }
         }
 
         onClose();
     };
 
-    const toggleDetail = (id: string) => {
-        setDetailIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    const addDetail = async (input: string) => {
+        const normalized = normalizeTaskName(input);
+        if (!normalized) return;
+
+        if (!detailNames.includes(normalized)) {
+            setDetailNames(prev => [...prev, normalized]);
+
+            // Handle Master registration if toggle is ON
+            if (saveToMaster) {
+                const exists = detailTasks.find(d => normalizeTaskName(d.name) === normalized);
+                if (!exists) {
+                    await addDetailTask({
+                        name: normalized,
+                        workTypeId: workTypeId || ''
+                    });
+                }
+            }
+            // Always add to Recent
+            await addRecentDetailTask(normalized, workTypeId || '');
+        }
+        setDetailInput('');
     };
 
     return (
@@ -143,62 +167,98 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
                         </Select>
                     </div>
 
-                    {/* Decoupled Detail Task Selection */}
-                    <div>
-                        <Label className="mb-2 block">詳細作業 (検索/追加)</Label>
+                    {/* Detail Task Selection */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <Label className="mb-0">詳細作業 (検索/追加)</Label>
+                            <label className="flex items-center gap-2 cursor-pointer text-[10px] font-semibold text-cyan-600 dark:text-cyan-400">
+                                <input
+                                    type="checkbox"
+                                    checked={saveToMaster}
+                                    onChange={e => setSaveToMaster(e.target.checked)}
+                                    className="w-3 h-3 rounded border-cyan-300 text-cyan-500 focus:ring-cyan-200"
+                                />
+                                マスタに保存
+                            </label>
+                        </div>
 
                         {/* Selected Chips */}
                         <div className="flex flex-wrap gap-2 mb-2">
-                            {detailIds.map(did => {
-                                const d = detailTasks.find(t => t.id === did);
-                                return d ? (
-                                    <span key={did} className="flex items-center gap-1 px-2 py-1 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-800 dark:text-cyan-200 rounded-full text-xs">
-                                        {d.name}
-                                        <button type="button" onClick={() => toggleDetail(did)} className="hover:text-cyan-600"><X size={12} /></button>
-                                    </span>
-                                ) : null;
-                            })}
+                            {detailNames.map((name, i) => (
+                                <span key={i} className="flex items-center gap-1 px-2 py-1 bg-cyan-100 dark:bg-cyan-900/40 text-cyan-800 dark:text-cyan-200 rounded-full text-xs">
+                                    {name}
+                                    <button
+                                        type="button"
+                                        onClick={() => setDetailNames(prev => prev.filter((_, idx) => idx !== i))}
+                                        className="hover:text-cyan-600"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </span>
+                            ))}
                         </div>
 
-                        {/* Dropdown / Input wrapper */}
+                        {/* Input row with buttons */}
                         <div className="flex gap-2">
                             <Input
-                                list="all-details"
                                 value={detailInput}
                                 onChange={e => setDetailInput(e.target.value)}
-                                placeholder="作業名を入力または選択..."
+                                placeholder="作業名を入力..."
                                 className="flex-1"
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        addDetail(detailInput);
+                                    }
+                                }}
                             />
-                            <datalist id="all-details">
-                                {detailTasks.map(d => (
-                                    <option key={d.id} value={d.name} />
-                                ))}
-                            </datalist>
+
+                            {/* Master Tasks Dropdown */}
+                            <div className="relative">
+                                <Select
+                                    value=""
+                                    onChange={e => {
+                                        if (e.target.value) addDetail(e.target.value);
+                                    }}
+                                    className="w-10 h-full opacity-0 absolute inset-0 cursor-pointer z-10"
+                                >
+                                    <option value="" disabled className="font-bold text-slate-500">【マスタ】</option>
+                                    {detailTasks.filter(d => d.enabled).map(d => (
+                                        <option key={d.id} value={d.name}>{d.name}</option>
+                                    ))}
+                                </Select>
+                                <Button variant="secondary" className="h-full px-2">
+                                    <Book size={16} />
+                                </Button>
+                            </div>
+
+                            {/* Recent Tasks Dropdown */}
+                            <div className="relative">
+                                <Select
+                                    value=""
+                                    onChange={e => {
+                                        if (e.target.value) addDetail(e.target.value);
+                                    }}
+                                    className="w-10 h-full opacity-0 absolute inset-0 cursor-pointer z-10"
+                                >
+                                    <option value="" disabled className="font-bold text-slate-500">【履歴】</option>
+                                    {recentDetailTasks.map(r => (
+                                        <option key={r.id} value={r.name}>{r.name}</option>
+                                    ))}
+                                </Select>
+                                <Button variant="secondary" className="h-full px-2">
+                                    <HistoryIcon size={16} />
+                                </Button>
+                            </div>
+
                             <Button
                                 type="button"
                                 size="sm"
-                                onClick={() => {
-                                    if (!detailInput.trim()) return;
-                                    const match = detailTasks.find(d => d.name === detailInput.trim());
-                                    if (match) {
-                                        if (!detailIds.includes(match.id)) setDetailIds([...detailIds, match.id]);
-                                        setDetailInput('');
-                                    } else {
-                                        // Option to create new on the fly? Or forbid?
-                                        // User said "Change to dropdown".
-                                        // Let's assume selecting existing is priority.
-                                        alert("一覧にある作業を選択してください (編集画面では新規作成不可)");
-                                    }
-                                }}
+                                onClick={() => addDetail(detailInput)}
                             >
                                 追加
                             </Button>
                         </div>
-                    </div>
-
-                    <div>
-                        <Label>メモ (自由入力)</Label>
-                        <Input value={note} onChange={e => setNote(e.target.value)} placeholder="備考・詳細など" />
                     </div>
 
                     <div className="pt-4 flex gap-2">
