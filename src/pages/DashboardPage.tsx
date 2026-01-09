@@ -106,6 +106,16 @@ export const DashboardPage: React.FC = () => {
     const [editorialText, setEditorialText] = useState('');
     const [dailyComment, setDailyComment] = useState('');
 
+    // Filter States (Weekly Live Summary)
+    const [filterDeptId, setFilterDeptId] = useState<string>('all');
+    const [filterWorkTypeId, setFilterWorkTypeId] = useState<string>('all');
+
+    // Zoom States (Donut Chart)
+    const [zoomLevel, setZoomLevel] = useState<'all' | 'dept' | 'wt'>('all');
+    const [zoomDeptId, setZoomDeptId] = useState<string | null>(null);
+    const [zoomWtId, setZoomWtId] = useState<string | null>(null);
+    const [zoomHistory, setZoomHistory] = useState<Array<{ level: 'all' | 'dept' | 'wt', deptId: string | null, wtId: string | null }>>([]);
+
     // Load Data
     // Live Data Query
     const fetchedLogs = useLiveQuery(async () => {
@@ -128,7 +138,6 @@ export const DashboardPage: React.FC = () => {
         }
         start = sDate.getTime();
         end = eDate.getTime();
-
         const data = await db.workLogs
             .where('startAt')
             .between(start, end, true, true)
@@ -138,24 +147,37 @@ export const DashboardPage: React.FC = () => {
     }, [targetDate, period]);
 
     const logs = useMemo(() => fetchedLogs || [], [fetchedLogs]);
+    const NO_WT_ID = 'no_work_type';
+
+    // Live Summary Filtering
+    const filteredWeeklyLogs = useMemo(() => {
+        if (period !== 'week') return logs;
+        return logs.filter(l => {
+            const matchesDept = filterDeptId === 'all' || l.departmentId === filterDeptId;
+            const logWtId = l.workTypeId || NO_WT_ID;
+            const matchesWT = filterWorkTypeId === 'all' || logWtId === filterWorkTypeId;
+            return matchesDept && matchesWT;
+        });
+    }, [logs, period, filterDeptId, filterWorkTypeId]);
 
     // Live Summary Calculation
     const liveSummary = useMemo(() => {
-        if (period !== 'week' || !logs) return '';
+        if (period !== 'week' || !filteredWeeklyLogs) return '';
         return getWeeklySummary({
-            logs,
+            logs: filteredWeeklyLogs,
             departments,
             workTypes,
             detailTasks
         });
-    }, [period, logs, departments, workTypes, detailTasks]);
+    }, [period, filteredWeeklyLogs, departments, workTypes, detailTasks]);
 
     // Editorial Persistence
     useEffect(() => {
         if (period === 'week') {
             const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
-            const weekKey = `weeklyReportEditorial_${format(sDate, 'yyyy-MM-dd')}`;
-            const savedEditorial = localStorage.getItem(weekKey);
+            const weekKey = format(sDate, 'yyyy-MM-dd');
+            const fullKey = `weeklyReportEditorial_${weekKey}_${filterDeptId}`;
+            const savedEditorial = localStorage.getItem(fullKey);
 
             if (savedEditorial) {
                 setEditorialText(savedEditorial);
@@ -165,6 +187,16 @@ export const DashboardPage: React.FC = () => {
         } else {
             setEditorialText('');
         }
+    }, [period, targetDate, filterDeptId]);
+
+    // Reset Zoom/Filters on period change
+    useEffect(() => {
+        setZoomLevel('all');
+        setZoomDeptId(null);
+        setZoomWtId(null);
+        setZoomHistory([]);
+        setFilterDeptId('all');
+        setFilterWorkTypeId('all');
     }, [period, targetDate]);
 
     // Load Daily Comment
@@ -186,8 +218,9 @@ export const DashboardPage: React.FC = () => {
         setEditorialText(value);
         if (period === 'week') {
             const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
-            const weekKey = `weeklyReportEditorial_${format(sDate, 'yyyy-MM-dd')}`;
-            localStorage.setItem(weekKey, value);
+            const weekKey = format(sDate, 'yyyy-MM-dd');
+            const fullKey = `weeklyReportEditorial_${weekKey}_${filterDeptId}`;
+            localStorage.setItem(fullKey, value);
         }
     };
 
@@ -364,13 +397,20 @@ export const DashboardPage: React.FC = () => {
         type Node = { id: string; name: string; sec: number; children: Record<string, Node> };
         const tree: Record<string, Node> = {};
 
-        let totalSec = 0;
+        // Filter logs based on zoom level
+        const zoomFilteredLogs = logs.filter(l => {
+            const logWtId = l.workTypeId || NO_WT_ID;
+            if (zoomLevel === 'dept') return l.departmentId === zoomDeptId;
+            if (zoomLevel === 'wt') return l.departmentId === zoomDeptId && logWtId === zoomWtId;
+            return true;
+        });
 
-        logs.forEach(l => {
+        let totalSec = 0;
+        zoomFilteredLogs.forEach(l => {
             const sec = l.durationSec || 0;
             totalSec += sec;
             const deptId = l.departmentId;
-            const wtId = l.workTypeId || 'empty';
+            const wtId = l.workTypeId || NO_WT_ID;
 
             // Dept Level
             if (!tree[deptId]) {
@@ -381,7 +421,10 @@ export const DashboardPage: React.FC = () => {
 
             // WT Level
             if (!tree[deptId].children[wtId]) {
-                const wName = workTypes.find(w => w.id === wtId)?.name || '作業種別なし';
+                let wName = '作業種別なし';
+                if (wtId !== NO_WT_ID) {
+                    wName = workTypes.find(w => w.id === wtId)?.name || '不明 (マスタ削除)';
+                }
                 tree[deptId].children[wtId] = { id: wtId, name: wName, sec: 0, children: {} };
             }
             tree[deptId].children[wtId].sec += sec;
@@ -402,85 +445,105 @@ export const DashboardPage: React.FC = () => {
             tree[deptId].children[wtId].children[detailKey].sec += sec;
         });
 
-        const sortedDepts = Object.values(tree).sort((a, b) => b.sec - a.sec);
+        const datasets: any[] = [];
+        const themeBorderColor = theme === 'dark' ? '#0f172a' : '#fff';
 
-        const dData: number[] = [];
-        const dBg: string[] = [];
-        const dLabels: string[] = [];
+        if (zoomLevel === 'all') {
+            const sortedDepts = Object.values(tree).sort((a, b) => b.sec - a.sec);
+            const dData: number[] = [], dBg: string[] = [], dLabels: string[] = [], dMeta: any[] = [];
+            const wData: number[] = [], wBg: string[] = [], wLabels: string[] = [], wMeta: any[] = [];
+            const dtData: number[] = [], dtBg: string[] = [], dtLabels: string[] = [], dtMeta: any[] = [];
 
-        const wData: number[] = [];
-        const wBg: string[] = [];
-        const wLabels: string[] = [];
+            const chartLabels: string[] = [];
 
-        const dtData: number[] = [];
-        const dtBg: string[] = [];
-        const dtLabels: string[] = [];
+            sortedDepts.forEach(d => {
+                const hue = getDepartmentHue(d.name);
+                dData.push(d.sec);
+                dLabels.push(d.name);
+                dBg.push(`hsl(${hue}, 70%, 80%)`);
+                dMeta.push({ dept: d.name, deptId: d.id, type: 'dept' });
+                chartLabels.push(d.name);
 
-        const dMeta: any[] = [];
-        const wMeta: any[] = [];
-        const dtMeta: any[] = [];
+                const sortedWTs = Object.values(d.children).sort((a, b) => b.sec - a.sec);
+                sortedWTs.forEach(w => {
+                    wData.push(w.sec);
+                    wBg.push(`hsl(${hue}, 70%, 60%)`);
+                    wLabels.push(w.name);
+                    wMeta.push({ dept: d.name, deptId: d.id, wt: w.name, wtId: w.id, type: 'wt' });
 
-        sortedDepts.forEach((d) => {
-            const hue = getDepartmentHue(d.name);
-            dData.push(d.sec);
-            dLabels.push(d.name);
-            dBg.push(`hsl(${hue}, 70%, 80%)`);
-            dMeta.push({ dept: d.name, type: 'dept' });
+                    const sortedDTs = Object.values(w.children).sort((a, b) => b.sec - a.sec);
+                    sortedDTs.forEach(dt => {
+                        dtData.push(dt.sec);
+                        dtBg.push(`hsl(${hue}, 70%, 40%)`);
+                        dtLabels.push(dt.name);
+                        dtMeta.push({ dept: d.name, wt: w.name, dt: dt.name, type: 'dt' });
+                    });
+                });
+            });
 
-            const sortedWTs = Object.values(d.children).sort((a, b) => b.sec - a.sec);
-            sortedWTs.forEach(w => {
-                wData.push(w.sec);
-                wBg.push(`hsl(${hue}, 70%, 60%)`);
-                wLabels.push(w.name);
-                wMeta.push({ dept: d.name, wt: w.name, type: 'wt' });
+            datasets.push(
+                { label: '部門', data: dData, backgroundColor: dBg, borderColor: themeBorderColor, borderWidth: 1, customMetadata: dMeta, totalSec },
+                { label: '作業種別', data: wData, backgroundColor: wBg, borderColor: themeBorderColor, borderWidth: 1, customMetadata: wMeta, totalSec },
+                { label: '詳細', data: dtData, backgroundColor: dtBg, borderColor: themeBorderColor, borderWidth: 1, customMetadata: dtMeta, totalSec }
+            );
+        } else if (zoomLevel === 'dept') {
+            const dNode = tree[zoomDeptId!];
+            if (dNode) {
+                const hue = getDepartmentHue(dNode.name);
+                const wData: number[] = [], wBg: string[] = [], wLabels: string[] = [], wMeta: any[] = [];
+                const dtData: number[] = [], dtBg: string[] = [], dtLabels: string[] = [], dtMeta: any[] = [];
 
-                const sortedDTs = Object.values(w.children).sort((a, b) => b.sec - a.sec);
+                const sortedWTs = Object.values(dNode.children).sort((a, b) => b.sec - a.sec);
+                sortedWTs.forEach(w => {
+                    wData.push(w.sec);
+                    wBg.push(`hsl(${hue}, 70%, 60%)`);
+                    wLabels.push(w.name);
+                    wMeta.push({ dept: dNode.name, deptId: dNode.id, wt: w.name, wtId: w.id, type: 'wt' });
+
+                    const sortedDTs = Object.values(w.children).sort((a, b) => b.sec - a.sec);
+                    sortedDTs.forEach(dt => {
+                        dtData.push(dt.sec);
+                        dtBg.push(`hsl(${hue}, 70%, 40%)`);
+                        dtLabels.push(dt.name);
+                        dtMeta.push({ dept: dNode.name, wt: w.name, dt: dt.name, type: 'dt' });
+                    });
+                });
+
+                datasets.push(
+                    { label: '作業種別', data: wData, backgroundColor: wBg, borderColor: themeBorderColor, borderWidth: 1, customMetadata: wMeta, totalSec },
+                    { label: '詳細', data: dtData, backgroundColor: dtBg, borderColor: themeBorderColor, borderWidth: 1, customMetadata: dtMeta, totalSec }
+                );
+            }
+        } else if (zoomLevel === 'wt') {
+            const dNode = tree[zoomDeptId!];
+            const wNode = dNode?.children[zoomWtId!];
+            if (wNode) {
+                const hue = getDepartmentHue(dNode.name);
+                const dtData: number[] = [], dtBg: string[] = [], dtLabels: string[] = [], dtMeta: any[] = [];
+
+                const sortedDTs = Object.values(wNode.children).sort((a, b) => b.sec - a.sec);
                 sortedDTs.forEach(dt => {
                     dtData.push(dt.sec);
                     dtBg.push(`hsl(${hue}, 70%, 40%)`);
                     dtLabels.push(dt.name);
-                    dtMeta.push({ dept: d.name, wt: w.name, dt: dt.name, type: 'dt' });
+                    dtMeta.push({ dept: dNode.name, wt: wNode.name, dt: dt.name, type: 'dt' });
                 });
-            });
-        });
+
+                datasets.push(
+                    { label: '詳細', data: dtData, backgroundColor: dtBg, borderColor: themeBorderColor, borderWidth: 1, customMetadata: dtMeta, totalSec }
+                );
+            }
+        }
 
         setStats({
             totalSec,
             chartData: {
-                labels: dLabels,
-                datasets: [
-                    {
-                        label: '部門',
-                        data: dData,
-                        backgroundColor: dBg,
-                        borderWidth: 1,
-                        borderColor: theme === 'dark' ? '#0f172a' : '#fff',
-                        customMetadata: dMeta,
-                        totalSec: totalSec
-                    } as any,
-                    {
-                        label: '作業種別',
-                        data: wData,
-                        backgroundColor: wBg,
-                        borderWidth: 1,
-                        borderColor: theme === 'dark' ? '#0f172a' : '#fff',
-                        customMetadata: wMeta,
-                        totalSec: totalSec
-                    } as any,
-                    {
-                        label: '詳細',
-                        data: dtData,
-                        backgroundColor: dtBg,
-                        borderWidth: 1,
-                        borderColor: theme === 'dark' ? '#0f172a' : '#fff',
-                        customMetadata: dtMeta,
-                        totalSec: totalSec
-                    } as any
-                ]
+                labels: zoomLevel === 'all' ? datasets[0].customMetadata.map((m: any) => m.dept) : [],
+                datasets
             }
         });
 
-    }, [logs, departments, workTypes, detailTasks, theme]);
+    }, [logs, departments, workTypes, detailTasks, theme, zoomLevel, zoomDeptId, zoomWtId]);
 
     // Chart Data
     const deptData = stats?.chartData || null;
@@ -504,6 +567,50 @@ export const DashboardPage: React.FC = () => {
         else if (period === 'week') d.setDate(d.getDate() + (amount * 7));
         else d.setDate(d.getDate() + amount);
         setTargetDate(d);
+        // Reset zoom on date shift too
+        setZoomLevel('all');
+        setZoomDeptId(null);
+        setZoomWtId(null);
+        setZoomHistory([]);
+    };
+
+    const handleChartClick = (_event: any, elements: any[]) => {
+        if (!elements.length) return;
+        const element = elements[0];
+        const datasetIndex = element.datasetIndex;
+        const index = element.index;
+        const meta = stats?.chartData?.datasets[datasetIndex]?.customMetadata?.[index];
+
+        if (!meta) return;
+
+        if (meta.type === 'dept') {
+            const nextHistory = [...zoomHistory, { level: zoomLevel, deptId: zoomDeptId, wtId: zoomWtId }];
+            setZoomHistory(nextHistory);
+            setZoomLevel('dept');
+            setZoomDeptId(meta.deptId);
+        } else if (meta.type === 'wt') {
+            const nextHistory = [...zoomHistory, { level: zoomLevel, deptId: zoomDeptId, wtId: zoomWtId }];
+            setZoomHistory(nextHistory);
+            setZoomLevel('wt');
+            setZoomDeptId(meta.deptId);
+            setZoomWtId(meta.wtId);
+        }
+    };
+
+    const handleZoomBack = () => {
+        if (zoomHistory.length === 0) return;
+        const last = zoomHistory[zoomHistory.length - 1];
+        setZoomLevel(last.level);
+        setZoomDeptId(last.deptId);
+        setZoomWtId(last.wtId);
+        setZoomHistory(zoomHistory.slice(0, -1));
+    };
+
+    const handleZoomReset = () => {
+        setZoomLevel('all');
+        setZoomDeptId(null);
+        setZoomWtId(null);
+        setZoomHistory([]);
     };
 
     return (
@@ -561,10 +668,27 @@ export const DashboardPage: React.FC = () => {
                 </Card>
 
                 {/* Department Chart */}
-                <Card className="flex flex-col items-center justify-center min-h-[300px] shadow-lg">
-                    <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2">
-                        <PieChart size={16} /> 詳細内訳
-                    </h3>
+                <Card className="flex flex-col items-center justify-center min-h-[300px] shadow-lg relative p-6">
+                    <div className="w-full flex justify-between items-start mb-4">
+                        <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-1 pr-4">
+                            <PieChart size={16} />
+                            <span className="truncate">
+                                {zoomLevel === 'all' ? '詳細内訳' :
+                                    zoomLevel === 'dept' ? `${departments.find(d => d.id === zoomDeptId)?.name || '不明'} 内訳` :
+                                        `${workTypes.find(w => w.id === zoomWtId)?.name || '不明'} 内訳`}
+                            </span>
+                        </h3>
+                        {zoomLevel !== 'all' && (
+                            <div className="flex gap-1 shrink-0">
+                                <Button variant="ghost" size="sm" onClick={handleZoomBack} className="text-[10px] h-7 px-2">
+                                    戻る
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={handleZoomReset} className="text-[10px] h-7 px-2 text-pink-500">
+                                    全体
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                     {deptData && stats.totalSec > 0 ? (
                         <div className="w-64 h-64">
                             <Doughnut
@@ -574,18 +698,21 @@ export const DashboardPage: React.FC = () => {
                                     responsive: true,
                                     maintainAspectRatio: false,
                                     cutout: '60%',
+                                    onClick: handleChartClick,
                                     plugins: {
                                         legend: {
-                                            display: true,
+                                            display: zoomLevel === 'all',
                                             position: 'bottom',
                                             labels: {
                                                 color: theme === 'dark' ? '#94a3b8' : '#475569',
-                                                font: { size: 11, family: 'Inter' }
+                                                font: { size: 10, family: 'Inter' },
+                                                boxWidth: 8,
+                                                padding: 10
                                             }
                                         },
                                         centerText: {
                                             display: true,
-                                            text: totalHours,
+                                            text: (stats.totalSec / 3600).toFixed(1),
                                             subtext: 'hours',
                                             color: theme === 'dark' ? '#e2e8f0' : '#1e293b',
                                             subtextColor: theme === 'dark' ? '#94a3b8' : '#64748b'
@@ -629,8 +756,10 @@ export const DashboardPage: React.FC = () => {
                         </div>
                     ) : logs.length > 0 ? (
                         <div className="text-center p-4">
-                            <div className="text-slate-400 dark:text-slate-500 text-sm mb-2">1分未満の記録は集計されません</div>
-                            <div className="text-xs text-slate-500 italic">※設定により1分単位で切り捨てられています</div>
+                            <div className="text-slate-400 dark:text-slate-500 text-sm mb-2">
+                                {zoomLevel !== 'all' ? 'この項目の集計データが見つかりません' : '1分未満の記録は集計されません'}
+                            </div>
+                            {zoomLevel === 'all' && <div className="text-xs text-slate-500 italic">※設定により1分単位で切り捨てられています</div>}
                         </div>
                     ) : (
                         <div className="text-slate-400 dark:text-slate-600 text-sm">データがありません</div>
@@ -680,7 +809,47 @@ export const DashboardPage: React.FC = () => {
                             </Button>
                         </div>
                     </div>
+
                     <div className="space-y-4">
+                        {/* Summary Filters */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <div className="flex flex-col gap-1.5">
+                                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">部門フィルタ</Label>
+                                <select
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all cursor-pointer"
+                                    value={filterDeptId}
+                                    onChange={e => setFilterDeptId(e.target.value)}
+                                >
+                                    <option value="all">全て</option>
+                                    {departments.map(d => (
+                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">作業種別フィルタ</Label>
+                                <select
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all cursor-pointer"
+                                    value={filterWorkTypeId}
+                                    onChange={e => setFilterWorkTypeId(e.target.value)}
+                                >
+                                    <option value="all">全て</option>
+                                    {workTypes.map(w => (
+                                        <option key={w.id} value={w.id}>{w.name}</option>
+                                    ))}
+                                    <option value={NO_WT_ID}>作業種別なし</option>
+                                </select>
+                            </div>
+                            <div className="md:col-span-2 text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                <span className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded">表示条件</span>
+                                <span>
+                                    {filterDeptId === 'all' ? '全て' : departments.find(d => d.id === filterDeptId)?.name}
+                                    {' × '}
+                                    {filterWorkTypeId === 'all' ? '全て' : workTypes.find(w => w.id === filterWorkTypeId)?.name}
+                                </span>
+                            </div>
+                        </div>
+
                         <div className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4">
                             <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Live Summary (Read-only)</h4>
                             <pre className="text-[10px] md:text-xs font-mono text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">
