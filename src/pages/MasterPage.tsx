@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMaster } from '../contexts/MasterContext';
 import { Card, Button, Input } from '../components/ui';
-import { ArrowLeft, Plus, Edit2, Trash2, Eye, EyeOff, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Eye, EyeOff, Check, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { v4 as uuidv4 } from 'uuid';
@@ -86,22 +86,20 @@ const DepartmentEditor = () => {
             </div>
 
             <div className="space-y-2">
-                {departments.map(dept => (
+                {departments.map((dept, index) => (
                     <ListItem
                         key={dept.id}
                         item={dept}
                         onUpdate={(u) => updateDepartment(dept.id, u)}
                         onDelete={() => { if (confirm('削除しますか？')) deleteDepartment(dept.id); }}
+                        onMoveUp={index > 0 ? () => handleMove(index, 'up', departments, updateDepartment) : undefined}
+                        onMoveDown={index < departments.length - 1 ? () => handleMove(index, 'down', departments, updateDepartment) : undefined}
                     />
                 ))}
             </div>
         </div>
     );
 };
-
-// Important: I need to update MasterContext to expose methods for WorkTypes and Details
-// I will implement temporary simplified editors that might fail if Context isn't updated.
-// I will invoke a "fix context" step after this.
 
 const WorkTypeEditor = () => {
     const { workTypes, addWorkType, updateWorkType, deleteWorkType } = useMaster();
@@ -129,12 +127,14 @@ const WorkTypeEditor = () => {
                 <Button onClick={handleAdd}><Plus size={20} /></Button>
             </div>
             <div className="space-y-2">
-                {workTypes.map(item => (
+                {workTypes.map((item, index) => (
                     <ListItem
                         key={item.id}
                         item={item}
                         onUpdate={(u) => updateWorkType(item.id, u)}
                         onDelete={() => { if (confirm('削除しますか？')) deleteWorkType(item.id); }}
+                        onMoveUp={index > 0 ? () => handleMove(index, 'up', workTypes, updateWorkType) : undefined}
+                        onMoveDown={index < workTypes.length - 1 ? () => handleMove(index, 'down', workTypes, updateWorkType) : undefined}
                     />
                 ))}
             </div>
@@ -182,20 +182,15 @@ const DetailTaskEditor = () => {
                 <h3 className="font-bold text-slate-700 dark:text-slate-300">登録済み作業一覧</h3>
 
                 <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
-                    {filteredTasks.map(item => (
-                        <div key={item.id} className="flex flex-col gap-1 p-3 bg-slate-100 dark:bg-slate-800/30 rounded-lg border border-slate-200 dark:border-slate-700/50 hover:border-slate-400 dark:hover:border-slate-600 transition-all">
-                            <div className="flex items-center justify-between">
-                                <span className="font-medium text-slate-900 dark:text-slate-200">{item.name}</span>
-                                <div className="flex gap-1">
-                                    <Button size="sm" variant="ghost" onClick={() => updateDetailTask(item.id, { enabled: !item.enabled })}>
-                                        {item.enabled ? <Eye size={16} className="text-cyan-500 dark:text-cyan-400" /> : <EyeOff size={16} className="text-slate-400 dark:text-slate-500" />}
-                                    </Button>
-                                    <Button size="sm" variant="ghost" onClick={() => { if (confirm('削除しますか？')) deleteDetailTask(item.id); }}>
-                                        <Trash2 size={16} className="text-rose-400" />
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
+                    {filteredTasks.map((item, index) => (
+                        <ListItem
+                            key={item.id}
+                            item={item}
+                            onUpdate={(u) => updateDetailTask(item.id, u)}
+                            onDelete={() => { if (confirm('削除しますか？')) deleteDetailTask(item.id); }}
+                            onMoveUp={index > 0 ? () => handleMove(index, 'up', filteredTasks, updateDetailTask) : undefined}
+                            onMoveDown={index < filteredTasks.length - 1 ? () => handleMove(index, 'down', filteredTasks, updateDetailTask) : undefined}
+                        />
                     ))}
                 </div>
             </div>
@@ -203,8 +198,45 @@ const DetailTaskEditor = () => {
     );
 };
 
+// --- Reordering Logic ---
+const handleMove = async (index: number, direction: 'up' | 'down', items: any[], updateFunc: (id: string, u: any) => Promise<any>) => {
+    // Basic bounds check
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === items.length - 1) return;
+
+    // Create a new array with swapped elements
+    const newItems = [...items];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newItems[index], newItems[targetIndex]] = [newItems[targetIndex], newItems[index]];
+
+    // Robust re-indexing: 
+    // We check ALL items. Any item whose 'order' property does not match its new array index (1-based) gets updated.
+    // This fixes gaps, duplicates, and applies the swap.
+    const updates = newItems
+        .map((item, idx) => ({ item, newOrder: idx + 1 }))
+        .filter(({ item, newOrder }) => item.order !== newOrder);
+
+    // Execute updates
+    // Note: We use the passed updateFunc. 
+    // Optimization: If the user has many items, this might fire many requests. 
+    // Since this is indexedDB local, it's fast.
+    await Promise.all(updates.map(({ item, newOrder }) => updateFunc(item.id, { order: newOrder })));
+};
+
 // Generic List Item
-const ListItem = ({ item, onUpdate, onDelete }: { item: any, onUpdate: (p: any) => void, onDelete: () => void }) => {
+const ListItem = ({
+    item,
+    onUpdate,
+    onDelete,
+    onMoveUp,
+    onMoveDown
+}: {
+    item: any,
+    onUpdate: (p: any) => void,
+    onDelete: () => void,
+    onMoveUp?: () => void,
+    onMoveDown?: () => void
+}) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(item.name);
 
@@ -236,8 +268,26 @@ const ListItem = ({ item, onUpdate, onDelete }: { item: any, onUpdate: (p: any) 
                 ? "bg-slate-100/50 dark:bg-slate-900/30 opacity-60"
                 : "bg-white dark:bg-slate-800/30"
         )}>
-            <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{item.name}</span>
-            <div className="flex gap-1">
+            <div className="flex items-center gap-2 overflow-hidden">
+                <div className="flex flex-col gap-0.5 mr-1">
+                    <button
+                        onClick={onMoveUp}
+                        disabled={!onMoveUp}
+                        className={clsx("p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors", !onMoveUp && "opacity-20 cursor-default")}
+                    >
+                        <ChevronUp size={14} className="text-slate-500" />
+                    </button>
+                    <button
+                        onClick={onMoveDown}
+                        disabled={!onMoveDown}
+                        className={clsx("p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors", !onMoveDown && "opacity-20 cursor-default")}
+                    >
+                        <ChevronDown size={14} className="text-slate-500" />
+                    </button>
+                </div>
+                <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{item.name}</span>
+            </div>
+            <div className="flex gap-1 shrink-0">
                 <Button size="sm" variant="ghost" onClick={() => { setEditName(item.name); setIsEditing(true); }}>
                     <Edit2 size={16} />
                 </Button>
