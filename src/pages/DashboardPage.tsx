@@ -363,10 +363,15 @@ export const DashboardPage: React.FC = () => {
                 const avgSign = avgImprovement >= 0 ? '+' : '';
                 const avgTrend = diffAvgMin > 0 ? `+${diffAvgMin}min` : diffAvgMin < 0 ? `${diffAvgMin}min` : '±0min';
 
+                // Count Comparison
+                const diffCount = currCount - prevCount;
+                const countTrend = diffCount > 0 ? `+${diffCount}回` : diffCount < 0 ? `${diffCount}回` : '±0回';
+
                 matchedLines.push(
                     `・${curr.display}：\n` +
                     `　合計: 先週 ${prevMin}min → 今週 ${currMin}min (${totalTrend}) (改善率 ${totalSign}${totalImprovement.toFixed(1)}%)\n` +
-                    `　平均: 先週 ${prevAvgMin}min → 今週 ${currAvgMin}min (${avgTrend}) (改善率 ${avgSign}${avgImprovement.toFixed(1)}%)`
+                    `　平均: 先週 ${prevAvgMin}min → 今週 ${currAvgMin}min (${avgTrend}) (改善率 ${avgSign}${avgImprovement.toFixed(1)}%)\n` +
+                    `　件数: 先週 ${prevCount}回 → 今週 ${currCount}回 (${countTrend})`
                 );
             }
         });
