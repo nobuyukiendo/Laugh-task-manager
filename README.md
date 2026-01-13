@@ -52,6 +52,23 @@ Googleカレンダーと連携可能な、詳細な作業時間記録アプリ�
      - 本番用: `https://your-domain.com` (実際にデプロイするURL)
 6. 生成された「クライアントID」をコピーし、`.env` ファイルの `VITE_GOOGLE_CLIENT_ID` に貼り付けてください。
 
+### GitHub Pages へのデプロイ設定
+
+GitHub Pages にデプロイする場合、以下の追加設定が必要です:
+
+1. **GitHub Secrets の設定**
+   - GitHubリポジトリの `Settings` → `Secrets and variables` → `Actions` に移動
+   - `New repository secret` をクリック
+   - Name: `VITE_GOOGLE_CLIENT_ID`
+   - Secret: Google Cloud Console で取得した Client ID を貼り付け
+   - `Add secret` をクリック
+
+2. **承認済みのJavaScriptオリジンの確認**
+   - Google Cloud Console で以下のオリジンが登録されていることを確認:
+     - `http://localhost:5174` (ローカル開発用)
+     - `https://nobuyukiendo.github.io` (GitHub Pages用)
+   - **注意**: パス(`/Laugh-task-manager`)は含めません
+
 ## ビルド方法
 
 配布用のファイルを生成するには以下のコマンドを実行します。
