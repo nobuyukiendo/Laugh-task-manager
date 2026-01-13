@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const TimerPage: React.FC = () => {
     const { activeLog, startTimer, stopTimer } = useTimer();
-    const { departments, workTypes, detailTasks, recentDetailTasks, addDetailTask, addRecentDetailTask } = useMaster();
+    const { departments, workTypes, detailTasks, recentDetailTasks, partners, addDetailTask, addRecentDetailTask } = useMaster();
     const navigate = useNavigate();
 
     // Form State
@@ -207,6 +207,121 @@ export const TimerPage: React.FC = () => {
                         計測開始
                     </Button>
                 </div>
+
+                {/* Text Generator Panel */}
+                <TextGeneratorPanel
+                    workTypeId={workTypeId}
+                    workTypes={workTypes}
+                    partners={partners}
+                    onApply={(text) => setDetailName(text)}
+                />
+            </div>
+        </div>
+    );
+};
+
+// --- Text Generator Panel ---
+interface TextGeneratorPanelProps {
+    workTypeId: string;
+    workTypes: any[];
+    partners: any[];
+    onApply: (text: string) => void;
+}
+
+const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, workTypes, partners, onApply }) => {
+    const [isVisible, setIsVisible] = useState(false);
+    const [action, setAction] = useState<'send' | 'check'>('send');
+    const [partnerId, setPartnerId] = useState('');
+    const [content, setContent] = useState('');
+
+    const targetWorkType = workTypes.find(w => w.id === workTypeId);
+    const isTarget = targetWorkType && (targetWorkType.name.includes('社内メッセージ') || targetWorkType.name.includes('社内メッセージ確認'));
+
+    React.useEffect(() => {
+        if (isTarget) {
+            setIsVisible(true);
+            if (targetWorkType.name.includes('確認')) {
+                setAction('check');
+            } else {
+                setAction('send');
+            }
+        } else {
+            setIsVisible(false);
+        }
+    }, [workTypeId, isTarget, targetWorkType]);
+
+    if (!isVisible) return null;
+
+    const partnerName = partners.find(p => p.id === partnerId)?.name || '';
+    const generatedText = action === 'send'
+        ? `${partnerName}に${content}についてのメッセージ送信`
+        : `${partnerName}の${content}についてのメッセージ確認`;
+
+    const isValid = partnerId && content.trim().length > 0;
+
+    return (
+        <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl animate-in fade-in slide-in-from-top-2">
+            <h3 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 mb-3 flex items-center gap-2">
+                <span className="bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 rounded text-xs">便利機能</span>
+                詳細作業 文面生成
+            </h3>
+
+            <div className="space-y-4">
+                {/* Action Selector */}
+                <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
+                    <button
+                        onClick={() => setAction('send')}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'send' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                    >
+                        送信（〜に）
+                    </button>
+                    <button
+                        onClick={() => setAction('check')}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'check' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                    >
+                        確認（〜の）
+                    </button>
+                </div>
+
+                {/* Inputs */}
+                <div className="grid grid-cols-[1fr_2fr] gap-2">
+                    <Select
+                        value={partnerId}
+                        onChange={e => setPartnerId(e.target.value)}
+                        className="text-sm py-2"
+                    >
+                        <option value="">相手を選択</option>
+                        {partners.filter((p: any) => p.enabled).map((p: any) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                    </Select>
+                    <Input
+                        placeholder="例：日程調整／見積もり"
+                        value={content}
+                        onChange={e => setContent(e.target.value)}
+                        className="text-sm py-2"
+                    />
+                </div>
+                <p className="text-[10px] text-indigo-400 dark:text-indigo-300">
+                    ※ 内容は名詞だけでOK（「について」は自動で入ります）
+                </p>
+
+                {/* Preview & Apply */}
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-indigo-100 dark:border-indigo-800/50">
+                    <div className="text-[10px] text-slate-400 mb-1">プレビュー</div>
+                    <div className="text-sm font-medium text-slate-700 dark:text-slate-200 min-h-[1.25rem]">
+                        {partnerId || content ? generatedText : <span className="text-slate-300">入力するとここにプレビューが表示されます</span>}
+                    </div>
+                </div>
+
+                <Button
+                    onClick={() => onApply(generatedText)}
+                    disabled={!isValid}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-slate-300 dark:disabled:bg-slate-700"
+                    size="sm"
+                >
+                    詳細作業に入力
+                </Button>
             </div>
         </div>
     );

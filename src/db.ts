@@ -29,6 +29,13 @@ export interface RecentDetailTask {
     lastUsedAt: number;
 }
 
+export interface Partner {
+    id: string;
+    name: string;
+    order: number;
+    enabled: boolean;
+}
+
 export type LogStatus = 'running' | 'done' | 'canceled';
 
 export interface WorkLog {
@@ -79,6 +86,7 @@ class AppDatabase extends Dexie {
     workTypes!: Table<WorkType, string>;
     detailTasks!: Table<DetailTask, string>;
     recentDetailTasks!: Table<RecentDetailTask, string>;
+    partners!: Table<Partner, string>;
     workLogs!: Table<WorkLog, string>;
     settings!: Table<Settings, string>;
 
@@ -95,7 +103,11 @@ class AppDatabase extends Dexie {
 
         this.version(2).stores({
             recentDetailTasks: 'id, name, workTypeId, lastUsedAt',
-            workLogs: 'id, status, dateKey, departmentId, workTypeId, startAt, endAt' // Re-listing is required by Dexie for updated stores (though optional if no schema change, we added field to interface only)
+            workLogs: 'id, status, dateKey, departmentId, workTypeId, startAt, endAt' // Re-listing is required by Dexie for updated stores
+        });
+
+        this.version(3).stores({
+            partners: 'id, &name, order, enabled'
         });
     }
 }

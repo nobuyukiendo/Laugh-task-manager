@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, Department, WorkType, DetailTask, RecentDetailTask } from '../db';
+import { db, Department, WorkType, DetailTask, RecentDetailTask, Partner } from '../db';
 
 interface MasterContextType {
     departments: Department[];
@@ -24,6 +24,11 @@ interface MasterContextType {
     deleteDetailTask: (id: string) => Promise<void>;
 
     addRecentDetailTask: (name: string, workTypeId: string) => Promise<string>;
+
+    partners: Partner[];
+    addPartner: (partner: Omit<Partner, 'id'>) => Promise<string>;
+    updatePartner: (id: string, u: Partial<Partner>) => Promise<number>;
+    deletePartner: (id: string) => Promise<void>;
 }
 
 const MasterContext = createContext<MasterContextType | undefined>(undefined);
@@ -33,6 +38,7 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const workTypes = useLiveQuery(() => db.workTypes.orderBy('order').toArray(), []) || [];
     const detailTasks = useLiveQuery(() => db.detailTasks.orderBy('order').toArray(), []) || [];
     const recentDetailTasks = useLiveQuery(() => db.recentDetailTasks.orderBy('lastUsedAt').reverse().toArray(), []) || [];
+    const partners = useLiveQuery(() => db.partners.orderBy('order').toArray(), []) || [];
 
     const addDepartment = async (dept: Department) => {
         return await db.departments.add(dept);
@@ -103,16 +109,27 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         }
     };
 
+    // Partners
+    const addPartner = async (partner: Omit<Partner, 'id'>) => {
+        const id = uuidv4();
+        await db.partners.add({ ...partner, id });
+        return id;
+    };
+    const updatePartner = async (id: string, u: Partial<Partner>) => db.partners.update(id, u);
+    const deletePartner = async (id: string) => { await db.partners.delete(id); };
+
     return (
         <MasterContext.Provider value={{
             departments,
             workTypes,
             detailTasks,
             recentDetailTasks,
+            partners,
             addDepartment, updateDepartment, deleteDepartment,
             addWorkType, updateWorkType, deleteWorkType,
             addDetailTask, updateDetailTask, deleteDetailTask,
-            addRecentDetailTask
+            addRecentDetailTask,
+            addPartner, updatePartner, deletePartner
         }}>
             {children}
         </MasterContext.Provider>

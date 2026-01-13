@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { v4 as uuidv4 } from 'uuid';
 
-type Tab = 'departments' | 'workTypes' | 'detailTasks';
+type Tab = 'departments' | 'workTypes' | 'detailTasks' | 'partners';
 
 export const MasterPage: React.FC = () => {
     const navigate = useNavigate();
@@ -31,6 +31,7 @@ export const MasterPage: React.FC = () => {
                     { id: 'departments', label: '部門' },
                     { id: 'workTypes', label: '作業種別' },
                     { id: 'detailTasks', label: '詳細作業' },
+                    { id: 'partners', label: '相手' },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -51,6 +52,7 @@ export const MasterPage: React.FC = () => {
                 {activeTab === 'departments' && <DepartmentEditor />}
                 {activeTab === 'workTypes' && <WorkTypeEditor />}
                 {activeTab === 'detailTasks' && <DetailTaskEditor />}
+                {activeTab === 'partners' && <PartnerEditor />}
             </Card>
         </div>
     );
@@ -193,6 +195,47 @@ const DetailTaskEditor = () => {
                         />
                     ))}
                 </div>
+            </div>
+        </div>
+    );
+};
+
+const PartnerEditor = () => {
+    const { partners, addPartner, updatePartner, deletePartner } = useMaster();
+    const [newName, setNewName] = useState('');
+
+    const handleAdd = async () => {
+        if (!newName.trim()) return;
+        await addPartner({
+            name: newName,
+            order: partners.length + 1,
+            enabled: true
+        });
+        setNewName('');
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex gap-2">
+                <Input
+                    placeholder="新しい相手..."
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                />
+                <Button onClick={handleAdd}><Plus size={20} /></Button>
+            </div>
+            <div className="space-y-2">
+                {partners.map((item, index) => (
+                    <ListItem
+                        key={item.id}
+                        item={item}
+                        onUpdate={(u) => updatePartner(item.id, u)}
+                        onDelete={() => { if (confirm('削除しますか？')) deletePartner(item.id); }}
+                        onMoveUp={index > 0 ? () => handleMove(index, 'up', partners, updatePartner) : undefined}
+                        onMoveDown={index < partners.length - 1 ? () => handleMove(index, 'down', partners, updatePartner) : undefined}
+                    />
+                ))}
             </div>
         </div>
     );
