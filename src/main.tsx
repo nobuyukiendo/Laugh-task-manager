@@ -6,13 +6,12 @@ import './index.css'
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider } from './contexts/ThemeContext';
 
-const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID";
+const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "682999477164-vqf5d4dvvnq1cdlluoo8ajh1718ihvsj.apps.googleusercontent.com";
 
 if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
-    console.error(
-        "⚠️ VITE_GOOGLE_CLIENT_ID is not set. Google Calendar integration will not work.\n" +
-        "Please set the environment variable in .env file for local development,\n" +
-        "or in GitHub Secrets for production deployment."
+    console.warn(
+        "⚠️ VITE_GOOGLE_CLIENT_ID is not set. Using fallback Google Client ID.\n" +
+        "For optimal security, please set the environment variable in GitHub Secrets."
     );
 }
 
