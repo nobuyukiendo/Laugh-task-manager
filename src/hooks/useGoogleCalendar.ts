@@ -5,12 +5,23 @@ import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 
 // Google Calendar API Types (Simplified)
-interface GCalEvent {
+export interface GCalEvent {
     summary: string;
     description: string;
     start: { dateTime?: string; date?: string };
     end: { dateTime?: string; date?: string };
     id?: string;
+}
+
+export interface ImportEvent {
+    id: string;
+    summary: string;
+    startAt: number;
+    endAt: number;
+    deptId: string;
+    wtId: string;
+    detail: string;
+    description: string;
 }
 
 export const useGoogleCalendar = () => {
@@ -284,7 +295,7 @@ export const useGoogleCalendar = () => {
         return { deptId, wtId, detail };
     };
 
-    const fetchEventsForImport = async (date: Date): Promise<any[]> => {
+    const fetchEventsForImport = async (date: Date): Promise<ImportEvent[]> => {
         const token = getAccessToken();
         if (!token) return [];
 
@@ -302,7 +313,7 @@ export const useGoogleCalendar = () => {
             .map(e => {
                 const { deptId, wtId, detail } = parseEventSummary(e.summary);
                 return {
-                    id: e.id,
+                    id: e.id || '',
                     summary: e.summary,
                     startAt: new Date(e.start.dateTime!).getTime(),
                     endAt: new Date(e.end.dateTime!).getTime(),

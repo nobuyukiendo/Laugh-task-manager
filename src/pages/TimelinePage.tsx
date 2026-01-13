@@ -6,9 +6,9 @@ import { useSettings } from '../contexts/SettingsContext';
 import { Card, Button, Input, Select, Label } from '../components/ui';
 import { format, parse } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { ChevronLeft, ChevronRight, Trash2, Edit2, UploadCloud, CalendarCheck, Plus, X, Book, History as HistoryIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit2, UploadCloud, CalendarCheck, Plus, X, Book, History as HistoryIcon, AlertCircle } from 'lucide-react';
 import { EditLogModal } from '../components/EditLogModal';
-import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
+import { useGoogleCalendar, ImportEvent } from '../hooks/useGoogleCalendar';
 import { ImportGCalModal } from '../components/ImportGCalModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLocation } from 'react-router-dom';
@@ -24,13 +24,22 @@ export const TimelinePage: React.FC = () => {
 
     // Date Navigation
     const [viewDate, setViewDate] = useState(new Date());
-    const { syncLog, isSyncing } = useGoogleCalendar();
+    const { syncLog, fetchEventsForImport } = useGoogleCalendar();
     const { theme } = useTheme();
     const isDark = theme === 'dark';
 
     const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
     const [showManualEntry, setShowManualEntry] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
+
+    // Sync State
+    const [syncErrors, setSyncErrors] = useState<Record<string, string>>({});
+    const [syncProgress, setSyncProgress] = useState<{ current: number; total: number; status: 'idle' | 'running' | 'done' }>({
+        current: 0,
+        total: 0,
+        status: 'idle'
+    });
+    const [missingEvents, setMissingEvents] = useState<ImportEvent[]>([]);
 
     // Scroll & Highlight Effect
     React.useEffect(() => {
@@ -50,6 +59,7 @@ export const TimelinePage: React.FC = () => {
             return () => clearTimeout(timer);
         }
     }, [justAddedLogId]);
+
     const [manualForm, setManualForm] = useState({
         startTime: '',
         endTime: '',
@@ -89,6 +99,10 @@ export const TimelinePage: React.FC = () => {
         const d = new Date(viewDate);
         d.setDate(d.getDate() + days);
         setViewDate(d);
+        // Clear errors on date change
+        setSyncErrors({});
+        setMissingEvents([]);
+        setSyncProgress({ current: 0, total: 0, status: 'idle' });
     };
 
     const handleBulkSync = async () => {
@@ -99,44 +113,149 @@ export const TimelinePage: React.FC = () => {
 
         if (!confirm("表示中のログをカレンダーへ転記しますか？")) return;
 
+        const targetLogs = logs.filter(l => l.status === 'done');
+        setSyncProgress({ current: 0, total: targetLogs.length, status: 'running' });
+        setSyncErrors({}); // Clear previous errors
+
         let updatedCount = 0;
         let createdCount = 0;
+        let failedCount = 0;
+        const newErrors: Record<string, string> = {};
 
-        for (const log of logs) {
-            if (log.status !== 'done') continue;
+        for (let i = 0; i < targetLogs.length; i++) {
+            const log = targetLogs[i];
+            setSyncProgress(prev => ({ ...prev, current: i + 1 }));
 
             try {
                 const result = await syncLog(log, false);
                 if (result.status === 'CREATED') createdCount++;
                 else if (result.status === 'UPDATED') updatedCount++;
                 else if (result.status === 'COLLISION_ERROR') {
+                    failedCount++;
                     const event = result.collisionEvents ? result.collisionEvents[0] : null;
-                    const logStart = formatInTimeZone(log.startAt, log.timezone, 'yyyy/MM/dd HH:mm');
-                    const logEnd = log.endAt ? formatInTimeZone(log.endAt, log.timezone, 'HH:mm') : '??:??';
-                    const msg = `時間が重複する予定があるため、登録できません。\n\n【登録しようとした履歴】\n${logStart} - ${logEnd}\n\n【重複している予定】\n${event?.summary}\n(${new Date(event?.start.dateTime || '').toLocaleString()} - ${new Date(event?.end.dateTime || '').toLocaleString()})\n\n時間を修正してください。`;
-                    alert(msg);
+                    newErrors[log.id] = `時間が重複する予定があります: ${event?.summary || '不明な予定'}`;
                 }
             } catch (e) {
+                failedCount++;
                 console.error("Sync failed for log", log.id, e);
+                newErrors[log.id] = "転記中にエラーが発生しました";
             }
         }
-        alert(`転記完了\n作成: ${createdCount}件\n更新: ${updatedCount}件`);
+
+        setSyncErrors(newErrors);
+        setSyncProgress(prev => ({ ...prev, status: 'done' }));
+
+        setTimeout(() => {
+            // Optional: reset progress after a few seconds? 
+            // Or keep it visible. Let's keep it until date change or next action.
+        }, 5000);
+
+        if (failedCount > 0) {
+            alert(`転記完了\n作成: ${createdCount}件\n更新: ${updatedCount}件\n失敗: ${failedCount}件 (赤枠の項目を確認してください)`);
+        } else {
+            alert(`転記完了\n作成: ${createdCount}件\n更新: ${updatedCount}件`);
+        }
     };
 
     const handleSingleSync = async (log: WorkLog) => {
         try {
+            // Clear specific error first
+            setSyncErrors(prev => {
+                const next = { ...prev };
+                delete next[log.id];
+                return next;
+            });
+
             const result = await syncLog(log, false);
             if (result.status === 'CREATED') alert("カレンダーに登録しました！");
             else if (result.status === 'UPDATED') alert("カレンダーを更新しました！");
             else if (result.status === 'COLLISION_ERROR') {
                 const event = result.collisionEvents ? result.collisionEvents[0] : null;
-                const logStart = formatInTimeZone(log.startAt, log.timezone, 'yyyy/MM/dd HH:mm');
-                const logEnd = log.endAt ? formatInTimeZone(log.endAt, log.timezone, 'HH:mm') : '??:??';
-                const msg = `時間が重複する予定があるため、登録できません。\n\n【登録しようとした履歴】\n${logStart} - ${logEnd}\n\n【重複している予定】\n${event?.summary}\n(${new Date(event?.start.dateTime || '').toLocaleString()} - ${new Date(event?.end.dateTime || '').toLocaleString()})\n\n時間を修正してください。`;
-                alert(msg);
+                const msg = `時間が重複する予定があります: ${event?.summary || '不明な予定'}`;
+                setSyncErrors(prev => ({ ...prev, [log.id]: msg }));
+                alert(`登録できません。\n${msg}`);
             }
         } catch (e) {
+            setSyncErrors(prev => ({ ...prev, [log.id]: "転記中にエラーが発生しました" }));
             alert("転記に失敗しました");
+        }
+    };
+
+    const handleVerifySync = async () => {
+        if (!logs || !settings?.calendar.connected) return;
+
+        setSyncProgress({ current: 0, total: 0, status: 'running' }); // Indeterminate or just busy state
+        setMissingEvents([]); // Clear previous missing events
+
+        try {
+            const events = await fetchEventsForImport(viewDate);
+            const newErrors: Record<string, string> = {};
+            let mismatchCount = 0;
+            let warningCount = 0;
+            const syncedEventIds = new Set<string>();
+
+            // 1. Correctness Check (Log -> GCal)
+            logs.forEach(log => {
+                if (log.status !== 'done') return;
+
+                const logStart = Math.floor(log.startAt / 1000) * 1000;
+                // const logEnd = Math.floor((log.endAt || 0) / 1000) * 1000;
+
+                // Case 1: Linked Log (Check existence & consistency)
+                if (log.calendar?.synced && log.calendar.eventId) {
+                    const ev = events.find(e => e.id === log.calendar?.eventId);
+                    if (!ev) {
+                        newErrors[log.id] = "Googleカレンダー上の予定が見つかりません (削除された可能性があります)";
+                        mismatchCount++;
+                    } else {
+                        syncedEventIds.add(ev.id); // Mark as accounted for
+                        const evStart = Math.floor(ev.startAt / 1000) * 1000;
+                        if (Math.abs(logStart - evStart) > 60000) {
+                            newErrors[log.id] = `時間が一致しません (Log: ${formatInTimeZone(log.startAt, timezone, 'HH:mm')}, GCal: ${formatInTimeZone(ev.startAt, timezone, 'HH:mm')})`;
+                            mismatchCount++;
+                        }
+                    }
+                }
+                // Case 2: Unlinked Log
+                else {
+                    const overlapEv = events.find(ev => {
+                        if (ev.id === log.calendar?.eventId) return false;
+                        return ev.startAt < (log.endAt || 0) && ev.endAt > log.startAt;
+                    });
+
+                    if (overlapEv) {
+                        // Collision (Error)
+                        newErrors[log.id] = `カレンダーに重複する予定があります (未連携): ${overlapEv.summary}`;
+                        syncedEventIds.add(overlapEv.id); // Account for it to avoid double warning
+                        mismatchCount++;
+                    } else {
+                        // No Collision but Not Synced (Warning)
+                        newErrors[log.id] = "⚠️ カレンダーに連携されていません";
+                        warningCount++;
+                    }
+                }
+            });
+
+            // 2. Completeness Check (GCal -> Log)
+            // Identify events in GCal that are NOT linked to any log AND didn't collide with any unlinked log.
+            const orphans = events.filter(ev => !syncedEventIds.has(ev.id));
+            setMissingEvents(orphans);
+
+            setSyncErrors(prev => ({ ...prev, ...newErrors }));
+
+            const totalIssues = mismatchCount + warningCount + orphans.length;
+
+            if (totalIssues === 0) {
+                alert("カレンダーとの整合性を確認しました。\n問題は見つかりませんでした。");
+            } else {
+                alert(`確認完了: ${totalIssues}件の問題が見つかりました。\n(エラー: ${mismatchCount}件, 警告: ${warningCount}件, カレンダーのみ: ${orphans.length}件)\n画面の表示を確認してください。`);
+            }
+
+        } catch (e) {
+            console.error(e);
+            alert("検証中にエラーが発生しました");
+        } finally {
+            setSyncProgress({ current: 0, total: 0, status: 'idle' });
         }
     };
 
@@ -174,12 +293,55 @@ export const TimelinePage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Warning for Missing Events */}
+            {missingEvents.length > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r shadow-sm">
+                    <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-bold mb-2">
+                        <AlertCircle size={20} />
+                        <h3>履歴に登録されていないカレンダー予定 ({missingEvents.length}件)</h3>
+                    </div>
+                    <div className="space-y-1">
+                        {missingEvents.map(ev => (
+                            <div key={ev.id} className="text-sm text-amber-900 dark:text-amber-100 flex items-center gap-2">
+                                <span className="font-mono bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded text-xs">
+                                    {formatInTimeZone(ev.startAt, timezone, 'HH:mm')} - {formatInTimeZone(ev.endAt, timezone, 'HH:mm')}
+                                </span>
+                                <span>{ev.summary}</span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                        ※ 「カレンダーからインポート」ボタンで取り込めます。
+                    </div>
+                </div>
+            )}
+
             {settings?.calendar.connected && (
-                <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="secondary" onClick={handleBulkSync} disabled={isSyncing}>
-                        <UploadCloud size={16} className="mr-2" />
-                        {isSyncing ? '転記中...' : 'カレンダーへ一括転記'}
-                    </Button>
+                <div className="flex flex-col items-end gap-2">
+                    <div className="flex gap-2">
+                        <Button
+                            variant={syncProgress.status === 'running' ? 'ghost' : 'secondary'}
+                            size="sm"
+                            disabled={syncProgress.status === 'running'}
+                            onClick={handleVerifySync}
+                            className={`gap-2 ${syncProgress.status !== 'running' ? 'bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300' : ''}`}
+                        >
+                            <CalendarCheck size={16} />
+                            {syncProgress.status === 'running' ? '確認中...' : '整合性チェック'}
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={syncProgress.status === 'running'}
+                            onClick={handleBulkSync}
+                            className="bg-slate-700 hover:bg-slate-600 text-white dark:bg-slate-700 dark:hover:bg-slate-600"
+                        >
+                            <UploadCloud size={16} className="mr-2" />
+                            {syncProgress.status === 'running'
+                                ? `転記中... (${syncProgress.current}/${syncProgress.total})`
+                                : `カレンダーへ一括転記`}
+                        </Button>
+                    </div>
                 </div>
             )}
 
@@ -395,11 +557,18 @@ export const TimelinePage: React.FC = () => {
                     const endStr = log.endAt ? formatInTimeZone(log.endAt, timezone, 'HH:mm') : '??:??';
                     const durationMin = Math.floor((log.durationSec || 0) / 60);
 
+                    const hasError = !!syncErrors[log.id];
+
                     return (
                         <div key={log.id} id={`log-${log.id}`} className={`group relative pl-4 border-l-2 ${justAddedLogId === log.id ? 'border-pink-500 ring-2 ring-pink-500 ring-opacity-50 rounded-r-lg' : 'border-slate-700'} hover:border-cyan-500 transition-all duration-500`}>
                             <div className={`absolute -left-[5px] top-4 w-2 h-2 rounded-full ${justAddedLogId === log.id ? 'bg-pink-500 animate-ping' : 'bg-slate-700'} group-hover:bg-cyan-500 transition-colors`} />
 
-                            <Card className={`p-4 flex flex-col gap-2 ${justAddedLogId === log.id ? 'bg-pink-50 dark:bg-pink-900/20' : 'bg-white dark:bg-slate-900'} data-[dark]:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm dark:shadow-none border border-slate-200 dark:border-slate-800`}>
+                            <Card className={`p-4 flex flex-col gap-2 ${justAddedLogId === log.id
+                                ? 'bg-pink-50 dark:bg-pink-900/20'
+                                : hasError
+                                    ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-400 dark:border-rose-600'
+                                    : 'bg-white dark:bg-slate-900'
+                                } data-[dark]:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm dark:shadow-none border border-slate-200 dark:border-slate-800`}>
                                 <div className="flex justify-between items-start">
                                     <div className="text-xs font-mono text-slate-400">
                                         {startStr} - {endStr} <span className="text-slate-500">({durationMin}min)</span>
@@ -440,6 +609,14 @@ export const TimelinePage: React.FC = () => {
                                     {log.note && (
                                         <div className="text-sm text-slate-400 dark:text-slate-400 bg-slate-900/50 dark:bg-slate-800/50 p-2 rounded">
                                             {log.note}
+                                        </div>
+                                    )}
+
+                                    {/* Error Message */}
+                                    {hasError && (
+                                        <div className="mt-2 text-xs text-rose-600 dark:text-rose-400 font-bold bg-white dark:bg-slate-900 p-2 rounded border border-rose-200 dark:border-rose-800 flex items-center gap-2">
+                                            <AlertCircle size={14} />
+                                            {syncErrors[log.id]}
                                         </div>
                                     )}
                                 </div>

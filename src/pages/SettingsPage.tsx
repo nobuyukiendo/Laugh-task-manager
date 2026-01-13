@@ -125,7 +125,7 @@ export const SettingsPage: React.FC = () => {
             </Card>
 
             <div className="text-center text-xs text-slate-600 pt-8">
-                ラフタスク管理表 v0.1.0
+                ラフタスク管理表 v0.1.1
             </div>
         </div>
     );
