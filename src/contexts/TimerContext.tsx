@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, WorkLog } from '../db';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,6 +7,7 @@ import { useSettings } from './SettingsContext';
 
 interface TimerContextType {
     activeLog: WorkLog | undefined;
+    lastFinishedLog: WorkLog | null;
     startTimer: (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string) => Promise<void>;
     stopTimer: () => Promise<void>;
     cancelTimer: () => Promise<void>;
@@ -17,6 +18,7 @@ const TimerContext = createContext<TimerContextType | undefined>(undefined);
 
 export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { settings } = useSettings();
+    const [lastFinishedLog, setLastFinishedLog] = useState<WorkLog | null>(null);
 
     // Watch for running log
     const activeLog = useLiveQuery(async () => {
@@ -34,13 +36,16 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return Math.floor(ts / ms) * ms;
     };
 
-    const startTimer = async (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string) => {
+    // Start Timer
+    const startTimer = async (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string = '') => {
         if (activeLog) {
             throw new Error("Timer already running");
         }
 
-        const exactNow = Date.now();
-        const startAt = applyRounding(exactNow);
+        // Floor to minute boundary
+        const now = new Date();
+        now.setSeconds(0, 0);
+        const startAt = now.getTime();
 
         const tz = settings?.timezone || 'UTC';
         const dateKey = formatInTimeZone(startAt, tz, 'yyyy-MM-dd');
@@ -64,12 +69,16 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         await db.workLogs.add(newLog);
     };
 
+    // Stop Timer
     const stopTimer = async () => {
         if (!activeLog) return;
 
+        // Floor to minute boundary
+        const now = new Date();
+        now.setSeconds(0, 0);
+        const endAt = now.getTime();
+
         const tz = settings?.timezone || 'UTC';
-        const exactNow = Date.now();
-        const endAt = applyRounding(exactNow);
 
         // Ensure end isn't before start due to rounding
         const finalEnd = Math.max(endAt, activeLog.startAt);
@@ -81,12 +90,20 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (startDateStr === endDateStr) {
             // Normal case: Same day
             const durationSec = (finalEnd - activeLog.startAt) / 1000;
+            const updatedLog = {
+                ...activeLog,
+                status: 'done' as const,
+                endAt: finalEnd,
+                durationSec,
+                updatedAt: Date.now()
+            };
             await db.workLogs.update(activeLog.id, {
                 status: 'done',
                 endAt: finalEnd,
                 durationSec,
                 updatedAt: Date.now()
             });
+            setLastFinishedLog(updatedLog);
         } else {
             // Date Crossing: Split logs
             const logsToCreate: WorkLog[] = [];
@@ -153,6 +170,11 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                     await db.workLogs.bulkAdd(logsToCreate.slice(1));
                     alert(`日付を跨いだため、記録を${logsToCreate.length}件に分割して登録しました。`);
                 }
+
+                // For simplified display, show the last part or the main part?
+                // Providing the last part usually makes most sense for "just finished" context 
+                // but let's just return the last segment.
+                setLastFinishedLog(logsToCreate[logsToCreate.length - 1]);
             }
         }
     };
@@ -174,6 +196,7 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return (
         <TimerContext.Provider value={{
             activeLog,
+            lastFinishedLog,
             startTimer,
             stopTimer,
             cancelTimer,

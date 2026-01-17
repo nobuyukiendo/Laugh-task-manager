@@ -36,6 +36,13 @@ export interface Partner {
     enabled: boolean;
 }
 
+export interface Location {
+    id: string;
+    name: string;
+    order: number;
+    enabled: boolean;
+}
+
 export type LogStatus = 'running' | 'done' | 'canceled';
 
 export interface WorkLog {
@@ -71,10 +78,13 @@ export interface Settings {
     timezone: string;
     rounding: number; // 0 (none), 1, 5, 10, 15
     weekStartsOnMonday: boolean;
+    afterMeasurement: 'stay' | 'navigate'; // New setting
     calendar: {
         connected: boolean;
         accessToken?: string;
         refreshToken?: string;
+        tokenExpiresAt?: number; // timestamp in ms
+        codeVerifier?: string; // PKCE verifier
         selectedCalendarId?: string;
         eventTitleTemplate: string;
         lastSyncTime?: number;
@@ -87,6 +97,7 @@ class AppDatabase extends Dexie {
     detailTasks!: Table<DetailTask, string>;
     recentDetailTasks!: Table<RecentDetailTask, string>;
     partners!: Table<Partner, string>;
+    locations!: Table<Location, string>;
     workLogs!: Table<WorkLog, string>;
     settings!: Table<Settings, string>;
 
@@ -108,6 +119,10 @@ class AppDatabase extends Dexie {
 
         this.version(3).stores({
             partners: 'id, &name, order, enabled'
+        });
+
+        this.version(4).stores({
+            locations: 'id, &name, order, enabled'
         });
     }
 }

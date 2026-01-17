@@ -15,6 +15,7 @@ const defaultSettings: Settings = {
     timezone: 'Asia/Tokyo',
     rounding: 1,
     weekStartsOnMonday: true,
+    afterMeasurement: 'stay',
     calendar: {
         connected: false,
         eventTitleTemplate: ''
@@ -24,15 +25,16 @@ const defaultSettings: Settings = {
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const settings = useLiveQuery(async () => {
         const s = await db.settings.get('config');
-        return s;
+        return s || defaultSettings;
     });
 
     const updateSettings = async (part: Partial<Settings>) => {
-        // If no settings exist yet, add the default settings first, then update
-        if (!settings) {
-            await db.settings.add(defaultSettings, 'config');
+        const current = await db.settings.get('config');
+        if (!current) {
+            await db.settings.add({ ...defaultSettings, ...part }, 'config');
+        } else {
+            await db.settings.update('config', part);
         }
-        await db.settings.update('config', part);
     };
 
     return (

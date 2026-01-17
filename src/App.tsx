@@ -11,6 +11,7 @@ import { TimelinePage } from './pages/TimelinePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { SearchPage } from './pages/SearchPage';
+import { HelpPage } from './pages/HelpPage';
 
 // Placeholder Pages - Will replace with real ones
 // (Removed)
@@ -30,6 +31,7 @@ function App() {
                                 <Route path="search" element={<SearchPage />} />
                                 <Route path="settings" element={<SettingsPage />} />
                                 <Route path="master" element={<MasterPage />} />
+                                <Route path="help" element={<HelpPage />} />
                             </Route>
                         </Routes>
                     </HashRouter>

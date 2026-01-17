@@ -1,29 +1,47 @@
-import React, { useState } from 'react';
-import { Button, Input, Select, Label } from '../components/ui';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTimer } from '../contexts/TimerContext';
 import { useMaster } from '../contexts/MasterContext';
-import { Play, Book, History as HistoryIcon } from 'lucide-react';
+import { useSettings } from '../contexts/SettingsContext';
+import { Card, Button, Input, Select, Label } from '../components/ui';
+import { Play, Square, Plus, Search, Building2, Tag, CircleSlash, History as HistoryIcon, ChevronRight, Book, CheckCircle2, X } from 'lucide-react';
+import { WorkLog } from '../db';
+import { format } from 'date-fns';
 import { ActiveTimer } from '../components/ActiveTimer';
-import { useNavigate } from 'react-router-dom';
 
 export const TimerPage: React.FC = () => {
-    const { activeLog, startTimer, stopTimer } = useTimer();
-    const { departments, workTypes, detailTasks, recentDetailTasks, partners, addDetailTask, addRecentDetailTask } = useMaster();
+    const timerContext = useTimer();
+    const { activeLog, lastFinishedLog, startTimer, stopTimer } = timerContext;
+    const masterContext = useMaster();
+    const { departments, workTypes, detailTasks, recentDetailTasks, partners, locations, addDetailTask, addRecentDetailTask } = masterContext;
+    const settingsContext = useSettings();
+    const { settings } = settingsContext;
     const navigate = useNavigate();
 
     // Form State
-    const [deptId, setDeptId] = useState(() => localStorage.getItem('lastTimerDeptId') || '');
+    const [deptId, setDeptId] = useState(() => localStorage.getItem('defaultDeptId') || '');
     const [workTypeId, setWorkTypeId] = useState('');
     const [detailName, setDetailName] = useState('');
     const [saveToMaster, setSaveToMaster] = useState(false);
     const [note, setNote] = useState('');
 
+    // Notification State
+    const [showRegistered, setShowRegistered] = useState(false);
+
     // Persist DeptId
-    React.useEffect(() => {
+    useEffect(() => {
         if (deptId) {
-            localStorage.setItem('lastTimerDeptId', deptId);
+            localStorage.setItem('defaultDeptId', deptId);
         }
     }, [deptId]);
+
+    // Handle auto-hide only
+    useEffect(() => {
+        if (showRegistered) {
+            const timer = setTimeout(() => setShowRegistered(false), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [showRegistered]);
 
     const normalizeTaskName = (name: string) => {
         return name
@@ -68,12 +86,25 @@ export const TimerPage: React.FC = () => {
         setDetailName('');
         setSaveToMaster(false);
         setNote('');
+        setShowRegistered(false);
     };
 
     const handleStop = async () => {
-        const logId = activeLog?.id;
+        // Capture current log before stopping
+        const currentLog = activeLog;
+        if (!currentLog) return; // Guard: prevent crash if activeLog is null
+
         await stopTimer();
-        navigate('/timeline', { state: { highlightedLogId: logId } });
+
+        // Show notification manually on user action
+        setShowRegistered(true);
+
+        // Guard: Handle undefined settings with default
+        const afterMeasurement = settings?.afterMeasurement ?? 'stay';
+
+        if (afterMeasurement === 'navigate') {
+            navigate('/timeline', { state: { highlightedLogId: currentLog.id } });
+        }
     };
 
     if (activeLog) {
@@ -84,17 +115,38 @@ export const TimerPage: React.FC = () => {
                 </h1>
                 <ActiveTimer
                     log={activeLog}
+                    departmentName={departments.find(d => d.id === activeLog.departmentId)?.name}
+                    workTypeName={workTypes.find(w => w.id === activeLog.workTypeId)?.name}
+                    detailName={activeLog.detailTaskNames?.[0] || (activeLog.detailTaskIds.length > 0 ? '詳細タスクあり' : '')}
                     onStop={handleStop}
                 />
             </div>
         );
     }
 
+    const formatTime = (sec: number) => {
+        const m = Math.floor(sec / 60);
+        return `${m}分`;
+    };
+
     return (
         <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 font-['Zen_Maru_Gothic']">
                 <Play className="text-pink-500 fill-current" /> 作業を開始
             </h1>
+
+            {/* Notification Banner */}
+            {showRegistered && (
+                <div className="bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 px-4 py-3 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2 font-bold">
+                        <CheckCircle2 size={20} />
+                        登録しました
+                    </div>
+                    <button onClick={() => setShowRegistered(false)} className="text-green-600 hover:text-green-800 dark:hover:text-green-200">
+                        <X size={18} />
+                    </button>
+                </div>
+            )}
 
             <div className="space-y-6 bg-white dark:bg-slate-900/50 p-6 rounded-[24px] shadow-sm border border-pink-100 dark:border-slate-800">
 
@@ -213,9 +265,43 @@ export const TimerPage: React.FC = () => {
                     workTypeId={workTypeId}
                     workTypes={workTypes}
                     partners={partners}
+                    locations={locations}
                     onApply={(text) => setDetailName(text)}
                 />
             </div>
+
+            {/* Last Log Summary (Stay Mode) */}
+            {lastFinishedLog && (
+                <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 rounded-xl p-4 animate-in fade-in slide-in-from-bottom-2">
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">今回登録した内容</h3>
+                    <div className="flex justify-between items-center">
+                        <div className="space-y-1">
+                            <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                {departments.find(d => d.id === lastFinishedLog.departmentId)?.name || '部門不明'}
+                                {lastFinishedLog.workTypeId && (
+                                    <>
+                                        <span className="text-slate-300 mx-1">/</span>
+                                        {workTypes.find(w => w.id === lastFinishedLog.workTypeId)?.name || ''}
+                                    </>
+                                )}
+                            </div>
+                            {(lastFinishedLog.detailTaskNames?.[0] || lastFinishedLog.detailTaskIds.length > 0) && (
+                                <div className="text-xs text-slate-600 dark:text-slate-400">
+                                    {lastFinishedLog.detailTaskNames?.[0] || '詳細タスク'}
+                                </div>
+                            )}
+                        </div>
+                        <div className="text-right">
+                            <div className="text-lg font-black font-mono text-cyan-600 dark:text-cyan-400">
+                                {formatTime(lastFinishedLog.durationSec)}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                                {new Date(lastFinishedLog.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(lastFinishedLog.endAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -225,13 +311,15 @@ interface TextGeneratorPanelProps {
     workTypeId: string;
     workTypes: any[];
     partners: any[];
+    locations: any[];
     onApply: (text: string) => void;
 }
 
-const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, workTypes, partners, onApply }) => {
+const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, workTypes, partners, locations, onApply }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [action, setAction] = useState<'send' | 'check'>('send');
     const [partnerId, setPartnerId] = useState('');
+    const [locationId, setLocationId] = useState('');
     const [content, setContent] = useState('');
 
     const targetWorkType = workTypes.find(w => w.id === workTypeId);
@@ -253,9 +341,13 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
     if (!isVisible) return null;
 
     const partnerName = partners.find(p => p.id === partnerId)?.name || '';
+    const locationName = locations.find(l => l.id === locationId)?.name || '';
+
+    const locationPrefix = locationName ? `${locationName}で、` : '';
+
     const generatedText = action === 'send'
-        ? `${partnerName}に${content}についてのメッセージ送信`
-        : `${partnerName}の${content}についてのメッセージ確認`;
+        ? `${locationPrefix}${partnerName}に${content}についてのメッセージ送信`
+        : `${locationPrefix}${partnerName}の${content}についてのメッセージ確認`;
 
     const isValid = partnerId && content.trim().length > 0;
 
@@ -285,21 +377,33 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
 
                 {/* Inputs */}
                 <div className="grid grid-cols-[1fr_2fr] gap-2">
-                    <Select
-                        value={partnerId}
-                        onChange={e => setPartnerId(e.target.value)}
-                        className="text-sm py-2"
-                    >
-                        <option value="">相手を選択</option>
-                        {partners.filter((p: any) => p.enabled).map((p: any) => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                    </Select>
+                    <div className="col-span-2 flex gap-2">
+                        <Select
+                            value={locationId}
+                            onChange={e => setLocationId(e.target.value)}
+                            className="text-sm py-2 flex-1"
+                        >
+                            <option value="">場所 (なし)</option>
+                            {locations.filter((l: any) => l.enabled).map((l: any) => (
+                                <option key={l.id} value={l.id}>{l.name}</option>
+                            ))}
+                        </Select>
+                        <Select
+                            value={partnerId}
+                            onChange={e => setPartnerId(e.target.value)}
+                            className="text-sm py-2 flex-[2]"
+                        >
+                            <option value="">相手を選択</option>
+                            {partners.filter((p: any) => p.enabled).map((p: any) => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                        </Select>
+                    </div>
                     <Input
                         placeholder="例：日程調整／見積もり"
                         value={content}
                         onChange={e => setContent(e.target.value)}
-                        className="text-sm py-2"
+                        className="text-sm py-2 col-span-2"
                     />
                 </div>
                 <p className="text-[10px] text-indigo-400 dark:text-indigo-300">

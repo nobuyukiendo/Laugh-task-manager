@@ -15,7 +15,7 @@ import {
     BarElement
 } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format, intervalToDuration } from 'date-fns';
 import { PieChart, Copy, FileText, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
 import {
     getWeeklyHeader,
@@ -58,6 +58,8 @@ const getDepartmentHue = (name: string): number => {
     return hue;
 };
 
+
+
 // Center Text Plugin
 const centerTextPlugin = {
     id: 'centerText',
@@ -98,7 +100,16 @@ export const DashboardPage: React.FC = () => {
     const { theme } = useTheme();
 
     // Period State
-    const [period, setPeriod] = useState<'day' | 'week' | 'month'>('week');
+    const [period, setPeriod] = useState<'day' | 'week' | 'month'>(() => {
+        const saved = localStorage.getItem('dashboardPeriod');
+        return (saved === 'day' || saved === 'week' || saved === 'month') ? saved : 'week';
+    });
+
+    // Save period to localStorage on change
+    useEffect(() => {
+        localStorage.setItem('dashboardPeriod', period);
+    }, [period]);
+
     const [targetDate, setTargetDate] = useState(new Date());
 
     // Data State
@@ -627,6 +638,8 @@ export const DashboardPage: React.FC = () => {
                 </h1>
             </div>
 
+
+
             {/* Controls */}
             <div className="flex flex-col md:flex-row gap-4 p-4 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 items-end">
                 <div>
@@ -886,3 +899,4 @@ export const DashboardPage: React.FC = () => {
         </div>
     );
 };
+

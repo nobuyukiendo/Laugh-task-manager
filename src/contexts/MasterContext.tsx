@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, Department, WorkType, DetailTask, RecentDetailTask, Partner } from '../db';
+import { db, Department, WorkType, DetailTask, RecentDetailTask, Partner, Location } from '../db';
 
 interface MasterContextType {
     departments: Department[];
@@ -29,6 +29,11 @@ interface MasterContextType {
     addPartner: (partner: Omit<Partner, 'id'>) => Promise<string>;
     updatePartner: (id: string, u: Partial<Partner>) => Promise<number>;
     deletePartner: (id: string) => Promise<void>;
+
+    locations: Location[];
+    addLocation: (location: Omit<Location, 'id'>) => Promise<string>;
+    updateLocation: (id: string, u: Partial<Location>) => Promise<number>;
+    deleteLocation: (id: string) => Promise<void>;
 }
 
 const MasterContext = createContext<MasterContextType | undefined>(undefined);
@@ -39,6 +44,7 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const detailTasks = useLiveQuery(() => db.detailTasks.orderBy('order').toArray(), []) || [];
     const recentDetailTasks = useLiveQuery(() => db.recentDetailTasks.orderBy('lastUsedAt').reverse().toArray(), []) || [];
     const partners = useLiveQuery(() => db.partners.orderBy('order').toArray(), []) || [];
+    const locations = useLiveQuery(() => db.locations.orderBy('order').toArray(), []) || [];
 
     const addDepartment = async (dept: Department) => {
         return await db.departments.add(dept);
@@ -118,6 +124,15 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const updatePartner = async (id: string, u: Partial<Partner>) => db.partners.update(id, u);
     const deletePartner = async (id: string) => { await db.partners.delete(id); };
 
+    // Locations
+    const addLocation = async (location: Omit<Location, 'id'>) => {
+        const id = uuidv4();
+        await db.locations.add({ ...location, id });
+        return id;
+    };
+    const updateLocation = async (id: string, u: Partial<Location>) => db.locations.update(id, u);
+    const deleteLocation = async (id: string) => { await db.locations.delete(id); };
+
     return (
         <MasterContext.Provider value={{
             departments,
@@ -129,7 +144,8 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             addWorkType, updateWorkType, deleteWorkType,
             addDetailTask, updateDetailTask, deleteDetailTask,
             addRecentDetailTask,
-            addPartner, updatePartner, deletePartner
+            addPartner, updatePartner, deletePartner,
+            locations, addLocation, updateLocation, deleteLocation
         }}>
             {children}
         </MasterContext.Provider>

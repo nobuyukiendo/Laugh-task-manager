@@ -60,6 +60,17 @@ export const SettingsPage: React.FC = () => {
                     </div>
 
                     <div>
+                        <Label>計測終了後の画面</Label>
+                        <Select
+                            value={settings.afterMeasurement || 'stay'}
+                            onChange={e => updateSettings({ afterMeasurement: e.target.value as 'stay' | 'navigate' })}
+                        >
+                            <option value="stay">計測画面に戻る (推奨)</option>
+                            <option value="navigate">履歴へ移動して最新を表示</option>
+                        </Select>
+                    </div>
+
+                    <div>
                         <Label>時間の丸め (分)</Label>
                         <Select
                             value={settings.rounding === 0 ? 'none' : settings.rounding}
@@ -116,7 +127,15 @@ export const SettingsPage: React.FC = () => {
                             <div className="p-3 bg-green-900/20 text-green-400 rounded-md text-sm">
                                 ✓ 接続済み
                             </div>
-                            <Button variant="secondary" onClick={() => updateSettings({ calendar: { ...settings.calendar, connected: false } })}>
+                            <Button variant="secondary" onClick={() => updateSettings({
+                                calendar: {
+                                    ...settings.calendar,
+                                    connected: false,
+                                    accessToken: undefined,
+                                    refreshToken: undefined,
+                                    tokenExpiresAt: 0
+                                }
+                            })}>
                                 解除
                             </Button>
                         </div>

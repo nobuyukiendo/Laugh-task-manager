@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { v4 as uuidv4 } from 'uuid';
 
-type Tab = 'departments' | 'workTypes' | 'detailTasks' | 'partners';
+type Tab = 'departments' | 'workTypes' | 'detailTasks' | 'partners' | 'locations';
 
 export const MasterPage: React.FC = () => {
     const navigate = useNavigate();
@@ -32,6 +32,7 @@ export const MasterPage: React.FC = () => {
                     { id: 'workTypes', label: '作業種別' },
                     { id: 'detailTasks', label: '詳細作業' },
                     { id: 'partners', label: '相手' },
+                    { id: 'locations', label: '場所' },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -53,6 +54,7 @@ export const MasterPage: React.FC = () => {
                 {activeTab === 'workTypes' && <WorkTypeEditor />}
                 {activeTab === 'detailTasks' && <DetailTaskEditor />}
                 {activeTab === 'partners' && <PartnerEditor />}
+                {activeTab === 'locations' && <LocationEditor />}
             </Card>
         </div>
     );
@@ -240,6 +242,48 @@ const PartnerEditor = () => {
         </div>
     );
 };
+
+const LocationEditor = () => {
+    const { locations, addLocation, updateLocation, deleteLocation } = useMaster();
+    const [newName, setNewName] = useState('');
+
+    const handleAdd = async () => {
+        if (!newName.trim()) return;
+        await addLocation({
+            name: newName,
+            order: locations.length + 1,
+            enabled: true
+        });
+        setNewName('');
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="flex gap-2">
+                <Input
+                    placeholder="新しい場所..."
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAdd()}
+                />
+                <Button onClick={handleAdd}><Plus size={20} /></Button>
+            </div>
+            <div className="space-y-2">
+                {locations.map((item, index) => (
+                    <ListItem
+                        key={item.id}
+                        item={item}
+                        onUpdate={(u) => updateLocation(item.id, u)}
+                        onDelete={() => { if (confirm('削除しますか？')) deleteLocation(item.id); }}
+                        onMoveUp={index > 0 ? () => handleMove(index, 'up', locations, updateLocation) : undefined}
+                        onMoveDown={index < locations.length - 1 ? () => handleMove(index, 'down', locations, updateLocation) : undefined}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
 
 // --- Reordering Logic ---
 const handleMove = async (index: number, direction: 'up' | 'down', items: any[], updateFunc: (id: string, u: any) => Promise<any>) => {

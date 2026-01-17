@@ -11,9 +11,10 @@ import { EditLogModal } from '../components/EditLogModal';
 import { useGoogleCalendar, ImportEvent } from '../hooks/useGoogleCalendar';
 import { ImportGCalModal } from '../components/ImportGCalModal';
 import { useTheme } from '../contexts/ThemeContext';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export const TimelinePage: React.FC = () => {
+    const navigate = useNavigate();
     const location = useLocation();
     const [justAddedLogId, setJustAddedLogId] = useState<string | null>(() => {
         return (location.state as any)?.highlightedLogId || null;
@@ -135,7 +136,12 @@ export const TimelinePage: React.FC = () => {
                     const event = result.collisionEvents ? result.collisionEvents[0] : null;
                     newErrors[log.id] = `時間が重複する予定があります: ${event?.summary || '不明な予定'}`;
                 }
-            } catch (e) {
+            } catch (e: any) {
+                if (e.message === "AUTH_EXPIRED") {
+                    console.warn("Sync logs interrupted due to auth expiration.");
+                    // No alert needed, UI handles connected=false
+                    break;
+                }
                 failedCount++;
                 console.error("Sync failed for log", log.id, e);
                 newErrors[log.id] = "転記中にエラーが発生しました";
@@ -175,7 +181,10 @@ export const TimelinePage: React.FC = () => {
                 setSyncErrors(prev => ({ ...prev, [log.id]: msg }));
                 alert(`登録できません。\n${msg}`);
             }
-        } catch (e) {
+        } catch (e: any) {
+            if (e.message === "AUTH_EXPIRED") {
+                return; // Silent return
+            }
             setSyncErrors(prev => ({ ...prev, [log.id]: "転記中にエラーが発生しました" }));
             alert("転記に失敗しました");
         }
@@ -251,7 +260,8 @@ export const TimelinePage: React.FC = () => {
                 alert(`確認完了: ${totalIssues}件の問題が見つかりました。\n(エラー: ${mismatchCount}件, 警告: ${warningCount}件, カレンダーのみ: ${orphans.length}件)\n画面の表示を確認してください。`);
             }
 
-        } catch (e) {
+        } catch (e: any) {
+            if (e.message === "AUTH_EXPIRED") return;
             console.error(e);
             alert("検証中にエラーが発生しました");
         } finally {
@@ -313,6 +323,28 @@ export const TimelinePage: React.FC = () => {
                     <div className="mt-2 text-xs text-amber-700 dark:text-amber-400">
                         ※ 「カレンダーからインポート」ボタンで取り込めます。
                     </div>
+                </div>
+            )}
+
+            {/* Authentication Expired Banner */}
+            {!settings?.calendar.connected && (settings?.calendar.tokenExpiresAt || 0) > 0 && Date.now() > (settings?.calendar.tokenExpiresAt || 0) && (
+                <div className="bg-orange-50 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-in fade-in duration-300">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-orange-800 dark:text-orange-200 font-bold">
+                            <AlertCircle size={20} />
+                            <h3>Google連携の有効期限（目安:約60分）が切れました</h3>
+                        </div>
+                        <p className="text-sm text-orange-700 dark:text-orange-300">
+                            セキュリティのため定期的にログアウトされます。再ログインすればすぐに復帰できます。
+                        </p>
+                    </div>
+                    <Button
+                        size="sm"
+                        onClick={() => navigate('/settings')}
+                        className="bg-orange-600 hover:bg-orange-700 text-white shrink-0 shadow-sm"
+                    >
+                        設定を開く
+                    </Button>
                 </div>
             )}
 
@@ -627,7 +659,8 @@ export const TimelinePage: React.FC = () => {
                                         variant="ghost"
                                         className={log.calendar?.synced ? "text-green-500 hover:text-green-600" : "text-slate-400 hover:text-cyan-500"}
                                         onClick={() => handleSingleSync(log)}
-                                        title={log.calendar?.synced ? "再同期 (上書き)" : "カレンダーへ転記"}
+                                        disabled={!settings?.calendar.connected}
+                                        title={!settings?.calendar.connected ? "カレンダー未連携" : (log.calendar?.synced ? "再同期 (上書き)" : "カレンダーへ転記")}
                                     >
                                         {log.calendar?.synced ? <CalendarCheck size={16} /> : <UploadCloud size={16} />}
                                     </Button>

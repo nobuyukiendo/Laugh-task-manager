@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Timer, History, BarChart2, Settings, Menu, X, Database } from 'lucide-react';
+import { Sun, Moon, Timer, History, BarChart2, Settings, Menu, X, Database, HelpCircle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 export const Layout: React.FC = () => {
@@ -14,6 +14,7 @@ export const Layout: React.FC = () => {
         { path: '/dashboard', label: '集計', icon: BarChart2 },
         { path: '/settings', label: '設定', icon: Settings },
         { path: '/master', label: 'マスタ', icon: Database },
+        { path: '/help', label: 'ヘルプ', icon: HelpCircle },
     ];
 
     return (
