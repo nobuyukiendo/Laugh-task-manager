@@ -1,6 +1,7 @@
 import {
     getTrelloAuthConfig,
-    clearTrelloToken
+    clearTrelloToken,
+    getTrelloApiKey, // 追加
 } from './trello-auth';
 
 import type {
@@ -12,7 +13,6 @@ import type {
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
 const BASE_URL = TRELLO_API_BASE; // エイリアスを追加
-const TRELLO_API_KEY = import.meta.env.VITE_TRELLO_API_KEY || '';
 
 /**
  * APIエラー
@@ -32,8 +32,7 @@ export class TrelloApiError extends Error {
  * カードURLからshortLinkを抽出
  */
 export function extractShortLinkFromUrl(cardUrl: string): string | null {
-    // https://trello.com/c/eIsokRvc/1-遠藤テスト
-    const match = cardUrl.match(/trello\.com\/c\/([a-zA-Z0-9]+)/);
+    const match = cardUrl.match(/trello\.com\/c\/([^/?#]+)/);
     return match ? match[1] : null;
 }
 
@@ -43,51 +42,41 @@ export function extractShortLinkFromUrl(cardUrl: string): string | null {
 export async function getCardByUrl(cardUrl: string, token: string): Promise<TrelloCard> {
     const shortLink = extractShortLinkFromUrl(cardUrl);
     if (!shortLink) {
-        throw new TrelloApiError('カードURLが正しくありません。');
+        throw new Error('無効なTrelloカードURLです');
     }
 
-    const url = `${TRELLO_API_BASE}/cards/${shortLink}?key=${TRELLO_API_KEY}&token=${token}`;
+    const apiKey = getTrelloApiKey(); // 動的に取得
+    if (!apiKey) throw new Error('API Keyが設定されていません');
 
-    try {
-        const response = await fetch(url);
+    const response = await fetch(`${BASE_URL}/cards/${shortLink}?key=${apiKey}&token=${token}`);
 
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                throw new TrelloApiError('認証エラー。再連携が必要です。', response.status);
-            }
-            throw new TrelloApiError(`カード取得エラー: ${response.statusText}`, response.status);
-        }
-
-        return await response.json();
-    } catch (error) {
-        if (error instanceof TrelloApiError) throw error;
-        throw new TrelloApiError('ネットワークエラー。接続を確認してください。');
+    if (!response.ok) {
+        const status = response.status;
+        const errorData = await response.json().catch(() => ({}));
+        throw new TrelloApiError(errorData.message || 'カード情報の取得に失敗しました', status, errorData);
     }
+
+    return await response.json();
 }
 
 /**
  * カードのチェックリスト一覧を取得
  */
 export async function getCardChecklists(cardId: string, token: string): Promise<TrelloChecklist[]> {
-    const url = `${TRELLO_API_BASE}/cards/${cardId}/checklists?` +
-        `checkItems=all&checkItem_fields=all&` +
-        `key=${TRELLO_API_KEY}&token=${token}`;
+    const apiKey = getTrelloApiKey(); // 動的に取得
+    if (!apiKey) throw new Error('API Keyが設定されていません');
 
-    try {
-        const response = await fetch(url);
+    const response = await fetch(
+        `${BASE_URL}/cards/${cardId}/checklists?key=${apiKey}&token=${token}`
+    );
 
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                throw new TrelloApiError('認証エラー。再連携が必要です。', response.status);
-            }
-            throw new TrelloApiError(`チェックリスト取得エラー: ${response.statusText}`, response.status);
-        }
-
-        return await response.json();
-    } catch (error) {
-        if (error instanceof TrelloApiError) throw error;
-        throw new TrelloApiError('ネットワークエラー。接続を確認してください。');
+    if (!response.ok) {
+        const status = response.status;
+        const errorData = await response.json().catch(() => ({}));
+        throw new TrelloApiError(errorData.message || 'チェックリストの取得に失敗しました', status, errorData);
     }
+
+    return await response.json();
 }
 
 /**
@@ -98,56 +87,39 @@ export async function updateChecklistName(
     newName: string,
     token: string
 ): Promise<TrelloChecklist> {
-    const url = `${TRELLO_API_BASE}/checklists/${checklistId}?` +
-        `key=${TRELLO_API_KEY}&token=${token}`;
+    const apiKey = getTrelloApiKey(); // 動的に取得
+    if (!apiKey) throw new Error('API Keyが設定されていません');
 
-    try {
-        const response = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ name: newName }),
-        });
+    const response = await fetch(
+        `${BASE_URL}/checklists/${checklistId}/name?value=${encodeURIComponent(newName)}&key=${apiKey}&token=${token}`,
+        { method: 'PUT' }
+    );
 
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                throw new TrelloApiError('認証エラー。再連携が必要です。', response.status);
-            }
-            throw new TrelloApiError(`チェックリスト更新エラー: ${response.statusText}`, response.status);
-        }
-
-        return await response.json();
-    } catch (error) {
-        if (error instanceof TrelloApiError) throw error;
-        throw new TrelloApiError('ネットワークエラー。接続を確認してください。');
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new TrelloApiError(errorData.message || 'チェックリスト名の更新に失敗しました', response.status, errorData);
     }
+
+    return await response.json();
 }
 
 /**
  * カードの添付ファイル一覧を取得
  */
 export async function getCardAttachments(cardId: string, token: string): Promise<TrelloAttachment[]> {
-    const url = `${TRELLO_API_BASE}/cards/${cardId}/attachments?` +
-        `key=${TRELLO_API_KEY}&token=${token}`;
+    const apiKey = getTrelloApiKey(); // 動的に取得
+    if (!apiKey) throw new Error('API Keyが設定されていません');
 
-    try {
-        const response = await fetch(url);
+    const response = await fetch(
+        `${BASE_URL}/cards/${cardId}/attachments?key=${apiKey}&token=${token}`
+    );
 
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                throw new TrelloApiError('認証エラー。再連携が必要です。', response.status);
-            }
-            throw new TrelloApiError(`添付ファイル取得エラー: ${response.statusText}`, response.status);
-        }
-
-        const attachments: TrelloAttachment[] = await response.json();
-        // 新しい順にソート
-        return attachments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    } catch (error) {
-        if (error instanceof TrelloApiError) throw error;
-        throw new TrelloApiError('ネットワークエラー。接続を確認してください。');
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new TrelloApiError(errorData.message || '添付ファイルの取得に失敗しました', response.status, errorData);
     }
+
+    return await response.json();
 }
 
 /**
@@ -158,31 +130,25 @@ export async function createCardAttachment(
     file: File,
     token: string
 ): Promise<TrelloAttachment> {
+    const apiKey = getTrelloApiKey(); // 動的に取得
+    if (!apiKey) throw new Error('API Keyが設定されていません');
+
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('key', TRELLO_API_KEY);
+    formData.append('key', apiKey);
     formData.append('token', token);
 
-    const url = `${TRELLO_API_BASE}/cards/${cardId}/attachments`;
+    const response = await fetch(`${BASE_URL}/cards/${cardId}/attachments`, {
+        method: 'POST',
+        body: formData,
+    });
 
-    try {
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData,
-        });
-
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                throw new TrelloApiError('認証エラー。再連携が必要です。', response.status);
-            }
-            throw new TrelloApiError(`添付ファイルアップロードエラー: ${response.statusText}`, response.status);
-        }
-
-        return await response.json();
-    } catch (error) {
-        if (error instanceof TrelloApiError) throw error;
-        throw new TrelloApiError('ネットワークエラー。接続を確認してください。');
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new TrelloApiError(errorData.message || 'ファイルのアップロードに失敗しました', response.status, errorData);
     }
+
+    return await response.json();
 }
 
 /**
@@ -192,61 +158,46 @@ export async function getCardPreview(
     cardId: string,
     token: string
 ): Promise<{ card: TrelloCard; attachments: TrelloAttachment[]; labels: TrelloLabel[] }> {
-    const url = `${TRELLO_API_BASE}/cards/${cardId}?` +
-        `fields=name,desc,url,shortLink&` +
-        `attachments=true&` +
-        `attachment_fields=name,url,date,mimeType,previews&` +
-        `labels=all&` +
-        `key=${TRELLO_API_KEY}&token=${token}`;
+    const apiKey = getTrelloApiKey(); // 動的に取得
+    if (!apiKey) throw new Error('API Keyが設定されていません');
 
-    try {
-        const response = await fetch(url);
+    const [cardRes, attachRes] = await Promise.all([
+        fetch(`${BASE_URL}/cards/${cardId}?key=${apiKey}&token=${token}`),
+        fetch(`${BASE_URL}/cards/${cardId}/attachments?key=${apiKey}&token=${token}`),
+    ]);
 
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                throw new TrelloApiError('認証エラー。再連携が必要です。', response.status);
-            }
-            throw new TrelloApiError(`カードプレビュー取得エラー: ${response.statusText}`, response.status);
-        }
-
-        const data = await response.json();
-
-        // 添付ファイルを新しい順にソート（最新3件のみ）
-        const attachments = (data.attachments || [])
-            .sort((a: TrelloAttachment, b: TrelloAttachment) =>
-                new Date(b.date).getTime() - new Date(a.date).getTime()
-            )
-            .slice(0, 3);
-
-        return {
-            card: data,
-            attachments,
-            labels: data.labels || [],
-        };
-    } catch (error) {
-        if (error instanceof TrelloApiError) throw error;
-        throw new TrelloApiError('ネットワークエラー。接続を確認してください。');
+    if (!cardRes.ok || !attachRes.ok) {
+        throw new Error('プレビュー情報の取得に失敗しました');
     }
+
+    const card = await cardRes.json();
+    const attachments = await attachRes.json();
+
+    return {
+        card,
+        attachments,
+        labels: card.labels || [],
+    };
 }
 
 /**
  * 指定したカードの詳細情報を取得
  */
 export async function getCard(cardIdOrShortLink: string): Promise<TrelloCard> {
-    const config = getTrelloAuthConfig();
-    if (!config) throw new Error('Not authenticated');
+    const token = getTrelloAuthConfig()?.token;
+    if (!token) throw new Error('Trelloと連携されていません');
 
-    const url = `${BASE_URL}/cards/${cardIdOrShortLink}?key=${TRELLO_API_KEY}&token=${config.token}&fields=name,desc,url,shortUrl,idList,labels`;
-    const response = await fetch(url);
+    const apiKey = getTrelloApiKey(); // 動的に取得
+    if (!apiKey) throw new Error('API Keyが設定されていません');
 
+    const response = await fetch(`${BASE_URL}/cards/${cardIdOrShortLink}?key=${apiKey}&token=${token}`);
     if (!response.ok) {
-        if (response.status === 401) {
+        const status = response.status;
+        if (status === 401 || status === 403) {
             clearTrelloToken();
-            throw new Error('Unauthorized');
         }
-        throw new Error('Failed to fetch card');
+        throw new Error('カードの取得に失敗しました');
     }
-
     return response.json();
 }
 
@@ -258,27 +209,25 @@ export async function updateCheckItem(
     checkItemId: string,
     params: { name?: string; state?: 'complete' | 'incomplete' }
 ): Promise<void> {
-    const config = getTrelloAuthConfig();
-    if (!config) throw new Error('Not authenticated');
+    const token = getTrelloAuthConfig()?.token;
+    if (!token) throw new Error('Trelloと連携されていません');
 
-    const queryParams = new URLSearchParams({
-        key: TRELLO_API_KEY,
-        token: config.token,
+    const apiKey = getTrelloApiKey(); // 動的に取得
+    if (!apiKey) throw new Error('API Keyが設定されていません');
+
+    const query = new URLSearchParams({
+        key: apiKey,
+        token: token,
+        ...(params.name ? { name: params.name } : {}),
+        ...(params.state ? { state: params.state } : {}),
     });
 
-    if (params.name) queryParams.append('name', params.name);
-    if (params.state) queryParams.append('state', params.state);
-
-    const url = `${BASE_URL}/cards/${cardId}/checkItem/${checkItemId}?${queryParams.toString()}`;
-    const response = await fetch(url, {
-        method: 'PUT',
-    });
+    const response = await fetch(
+        `${BASE_URL}/cards/${cardId}/checkItem/${checkItemId}?${query.toString()}`,
+        { method: 'PUT' }
+    );
 
     if (!response.ok) {
-        if (response.status === 401) {
-            clearTrelloToken();
-            throw new Error('Unauthorized');
-        }
-        throw new Error('Failed to update check item');
+        throw new Error('チェック項目の更新に失敗しました');
     }
 }

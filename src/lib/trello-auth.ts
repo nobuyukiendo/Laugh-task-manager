@@ -1,8 +1,12 @@
 // Trello認証管理
 
 const TRELLO_AUTH_STORAGE_KEY = 'trello_auth_config';
-const TRELLO_API_KEY = import.meta.env.VITE_TRELLO_API_KEY || '';
+const TRELLO_API_KEY_STORAGE_KEY = 'trello.apiKey';
+const TRELLO_TOKEN_MODE_STORAGE_KEY = 'trello.tokenMode';
 const TRELLO_APP_NAME = 'Laugh Task Manager';
+
+// セッション用トークン保持（「今回のみ」用）
+let sessionToken: string | null = null;
 
 export interface TrelloAuthConfig {
     token: string;
@@ -11,15 +15,32 @@ export interface TrelloAuthConfig {
 }
 
 /**
+ * Trello API Keyを取得（解決順: .env -> localStorage）
+ */
+export function getTrelloApiKey(): string {
+    // 1. 環境変数を最優先
+    const envKey = import.meta.env.VITE_TRELLO_API_KEY;
+    if (envKey && envKey.trim() !== '') {
+        return envKey.trim();
+    }
+
+    // 2. localStorageをチェック
+    const storedKey = localStorage.getItem(TRELLO_API_KEY_STORAGE_KEY);
+    return (storedKey || '').trim();
+}
+
+/**
  * Trello認証フローを開始
  * @param expiration 有効期限（'1hour', '1day', '30days', 'never'）
  */
 export function initTrelloAuth(expiration: '1hour' | '1day' | '30days' | 'never' = '30days'): void {
-    if (!TRELLO_API_KEY) {
-        throw new Error('Trello API Keyが設定されていません。環境変数VITE_TRELLO_API_KEYを設定してください。');
+    const apiKey = getTrelloApiKey();
+    if (!apiKey) {
+        throw new Error('Trello API Keyが設定されていません。設定から入力してください。');
     }
 
     // 完全なURLを指定（Hashを含む）
+    // Allowed Origins の不一致を避けるため、window.location をベースに構築
     const returnUrl = window.location.origin + window.location.pathname + '#/evaluation';
     const scope = 'read,write';
 
@@ -28,20 +49,20 @@ export function initTrelloAuth(expiration: '1hour' | '1day' | '30days' | 'never'
         `name=${encodeURIComponent(TRELLO_APP_NAME)}&` +
         `scope=${scope}&` +
         `response_type=token&` +
-        `key=${TRELLO_API_KEY}&` +
+        `key=${apiKey}&` +
         `return_url=${encodeURIComponent(returnUrl)}`;
 
-    // 同一ウィンドウでリダイレクト（ポップアップは廃止）
+    // 同一ウィンドウでリダイレクト
     window.location.href = authUrl;
 }
 
 /**
  * URLからトークンを抽出（認可後のリダイレクト時）
- * ハッシュ内のtoken、クエリパラメータのtokenの両方に対応
+ * 以前の真っ暗画面バグを防ぐため、非常に頑強な正規表現を使用
  */
 export function extractTokenFromUrl(): string | null {
     const fullUrl = window.location.href;
-    // ?token=xxx, &token=xxx, #token=xxx, #/evaluation&token=xxx などに対応
+    // [?&#]token=([^&#]+) で確実にtoken=以降の文字列をキャプチャ
     const match = fullUrl.match(/[?&#]token=([^&#]+)/);
     if (match) {
         try {
@@ -60,21 +81,18 @@ export function extractTokenFromUrl(): string | null {
 export function handleAuthReturn(): boolean {
     const token = extractTokenFromUrl();
     if (token) {
-        saveTrelloToken(token);
+        // 保存モードを確認（localStorageに保存されている設定があればそれに従う。なければデフォルトpersist）
+        const mode = (localStorage.getItem(TRELLO_TOKEN_MODE_STORAGE_KEY) as 'persist' | 'session') || 'persist';
+        saveTrelloToken(token, undefined, mode);
 
-        // URLをクリーンアップ（tokenを削除）
-        // Trelloは #/evaluation&token=... の形式でリダイレクトしてくるため、
-        // これを #/evaluation に修正する必要がある
+        // URLをクリーンアップ（tokenを削除して #/evaluation に戻す）
         const cleanUrl = window.location.origin + window.location.pathname + '#/evaluation';
 
-        // 即座にURLを修正してからreplaceState
-        // これにより、HashRouterが正しくルーティングできる
+        // HashRouterが正しく検知できるようハッシュを明示的にクリア・再設定
         window.location.hash = '/evaluation';
 
-        // 少し待ってからreplaceStateで履歴をクリーンアップ
-        setTimeout(() => {
-            window.history.replaceState(null, '', cleanUrl);
-        }, 100);
+        // 履歴を置換
+        window.history.replaceState(null, '', cleanUrl);
 
         return true;
     }
@@ -83,20 +101,33 @@ export function handleAuthReturn(): boolean {
 
 /**
  * Trelloトークンを保存
+ * @param mode 'persist' (永続) か 'session' (メモリのみ)
  */
-export function saveTrelloToken(token: string, expiresAt?: number): void {
+export function saveTrelloToken(token: string, expiresAt?: number, mode: 'persist' | 'session' = 'persist'): void {
     const config: TrelloAuthConfig = {
         token,
         expiresAt,
         scope: 'read,write'
     };
-    localStorage.setItem(TRELLO_AUTH_STORAGE_KEY, JSON.stringify(config));
+
+    if (mode === 'persist') {
+        localStorage.setItem(TRELLO_AUTH_STORAGE_KEY, JSON.stringify(config));
+        sessionToken = null; // 念のためメモリはクリア
+    } else {
+        sessionToken = token;
+        // メモリのみの場合、localStorageからは削除（不整合防止）
+        localStorage.removeItem(TRELLO_AUTH_STORAGE_KEY);
+    }
 }
 
 /**
  * 保存されたTrelloトークンを取得
  */
 export function getTrelloToken(): string | null {
+    // 1. メモリ（session）をチェック
+    if (sessionToken) return sessionToken;
+
+    // 2. localStorageをチェック
     const configStr = localStorage.getItem(TRELLO_AUTH_STORAGE_KEY);
     if (!configStr) return null;
 
@@ -120,6 +151,7 @@ export function getTrelloToken(): string | null {
  */
 export function clearTrelloToken(): void {
     localStorage.removeItem(TRELLO_AUTH_STORAGE_KEY);
+    sessionToken = null;
 }
 
 /**
@@ -133,6 +165,10 @@ export function isTrelloTokenValid(): boolean {
  * Trello認証設定を取得
  */
 export function getTrelloAuthConfig(): TrelloAuthConfig | null {
+    if (sessionToken) {
+        return { token: sessionToken, scope: 'read,write' };
+    }
+
     const configStr = localStorage.getItem(TRELLO_AUTH_STORAGE_KEY);
     if (!configStr) return null;
 
