@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link2, Link2Off, ExternalLink, Loader2, Bookmark, Trash2, Key, Info, Check, Save, XCircle } from 'lucide-react';
+import { Link2, Link2Off, ExternalLink, Loader2, Bookmark, Key, Info, Check, Save, XCircle, ChevronUp, ChevronDown } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db';
 import { v4 as uuidv4 } from 'uuid';
@@ -144,87 +144,105 @@ export const TrelloConnectionHeader: React.FC<TrelloConnectionHeaderProps> = ({
         await db.savedCards.delete(id);
     };
 
+    // セクションの開閉状態
+    const [isConfigExpanded, setIsConfigExpanded] = useState(() => {
+        const saved = localStorage.getItem('trello.configExpanded');
+        return saved === null ? true : saved === 'true';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('trello.configExpanded', String(isConfigExpanded));
+    }, [isConfigExpanded]);
+
     return (
         <div className="space-y-6">
             {/* Trello API設定 */}
-            <div className={`p-5 rounded-[1.5rem] border transition-all ${!activeApiKey ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800' : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800'}`}>
-                <div className="flex items-center gap-3 mb-4">
-                    <Key className={!activeApiKey ? 'text-amber-500' : 'text-slate-400'} size={20} />
-                    <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                        Trello API設定
-                    </h3>
-                    {isEnvApiKey && (
-                        <span className="text-[10px] font-black bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 px-2 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-800">
-                            ENV優先モード
-                        </span>
-                    )}
-                </div>
+            <div className={`rounded-[1.5rem] border transition-all overflow-hidden ${!activeApiKey ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800' : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800'}`}>
+                <button
+                    onClick={() => setIsConfigExpanded(!isConfigExpanded)}
+                    className="w-full flex items-center justify-between p-5 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <Key className={!activeApiKey ? 'text-amber-500' : 'text-slate-400'} size={20} />
+                        <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                            Trello API設定
+                        </h3>
+                        {isEnvApiKey && (
+                            <span className="text-[10px] font-black bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-400 px-2 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-800">
+                                ENV優先
+                            </span>
+                        )}
+                    </div>
+                    {isConfigExpanded ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                </button>
 
-                <div className="space-y-4">
-                    {!isEnvApiKey && (
-                        <div>
-                            <div className="flex gap-2">
-                                <input
-                                    type="password"
-                                    value={inputApiKey}
-                                    onChange={(e) => setInputApiKey(e.target.value)}
-                                    placeholder="Trello API Key を入力"
-                                    className="flex-1 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all"
-                                />
-                                <button
-                                    onClick={handleSaveApiKey}
-                                    disabled={!inputApiKey.trim()}
-                                    className="p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl hover:text-cyan-600 transition-colors disabled:opacity-30"
-                                    title="保存"
-                                >
-                                    {isApiKeySaved ? <Check size={20} className="text-green-500" /> : <Save size={20} />}
-                                </button>
-                                <button
-                                    onClick={handleClearApiKey}
-                                    className="p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl hover:text-red-500 transition-colors"
-                                    title="クリア"
-                                >
-                                    <XCircle size={20} />
-                                </button>
+                {isConfigExpanded && (
+                    <div className="p-5 pt-0 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                        {!isEnvApiKey && (
+                            <div>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="password"
+                                        value={inputApiKey}
+                                        onChange={(e) => setInputApiKey(e.target.value)}
+                                        placeholder="Trello API Key を入力"
+                                        className="flex-1 px-4 py-2 bg-white dark:bg-white border border-slate-300 dark:border-slate-400 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all font-bold"
+                                    />
+                                    <button
+                                        onClick={handleSaveApiKey}
+                                        disabled={!inputApiKey.trim()}
+                                        className="p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl hover:text-cyan-600 transition-colors disabled:opacity-30"
+                                        title="保存"
+                                    >
+                                        {isApiKeySaved ? <Check size={20} className="text-green-500" /> : <Save size={20} />}
+                                    </button>
+                                    <button
+                                        onClick={handleClearApiKey}
+                                        className="p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl hover:text-red-500 transition-colors"
+                                        title="クリア"
+                                    >
+                                        <XCircle size={20} />
+                                    </button>
+                                </div>
+                                <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 leading-relaxed">
+                                    <Info size={12} />
+                                    <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer" className="text-cyan-500 hover:underline">Trello APIキー取得場所</a>
+                                    <span>にて取得したキーを各自で入力してください。</span>
+                                </p>
                             </div>
-                            <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                                <Info size={12} />
-                                <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer" className="text-cyan-500 hover:underline">Trello APIキー取得場所</a>
-                                <span>は本人のみ有効な秘密情報です。各自で取得してください。</span>
-                            </p>
-                        </div>
-                    )}
+                        )}
 
-                    <div className="flex items-center gap-6">
-                        <label className="text-xs font-bold text-slate-600 dark:text-slate-400">トークンの保存方式:</label>
-                        <div className="flex gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <input
-                                    type="radio"
-                                    name="tokenMode"
-                                    checked={tokenMode === 'persist'}
-                                    onChange={() => setTokenMode('persist')}
-                                    className="w-4 h-4 text-cyan-500 border-slate-300 focus:ring-cyan-500"
-                                />
-                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                                    この端末に保存（推奨）
-                                </span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <input
-                                    type="radio"
-                                    name="tokenMode"
-                                    checked={tokenMode === 'session'}
-                                    onChange={() => setTokenMode('session')}
-                                    className="w-4 h-4 text-cyan-500 border-slate-300 focus:ring-cyan-500"
-                                />
-                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                                    今回のみ（ブラウザを閉じると解除）
-                                </span>
-                            </label>
+                        <div className="flex items-center gap-6">
+                            <label className="text-xs font-bold text-slate-600 dark:text-slate-400">トークンの保存方式:</label>
+                            <div className="flex gap-4">
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <input
+                                        type="radio"
+                                        name="tokenMode"
+                                        checked={tokenMode === 'persist'}
+                                        onChange={() => setTokenMode('persist')}
+                                        className="w-4 h-4 text-cyan-500 border-slate-300 focus:ring-cyan-500"
+                                    />
+                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                                        この端末に保存
+                                    </span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <input
+                                        type="radio"
+                                        name="tokenMode"
+                                        checked={tokenMode === 'session'}
+                                        onChange={() => setTokenMode('session')}
+                                        className="w-4 h-4 text-cyan-500 border-slate-300 focus:ring-cyan-500"
+                                    />
+                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                                        今回のみ
+                                    </span>
+                                </label>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* 連携状態 */}

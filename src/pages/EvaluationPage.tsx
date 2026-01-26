@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { TrelloPanel } from '../components/evaluation/TrelloPanel';
 import { WeeklyReportPanel } from '../components/evaluation/WeeklyReportPanel';
 import { handleAuthReturn } from '../lib/trello-auth';
 
 export const EvaluationPage: React.FC = () => {
-    const navigate = useNavigate();
     const { theme } = useTheme();
     const [authError, setAuthError] = useState<string | null>(null);
 
@@ -29,11 +27,11 @@ export const EvaluationPage: React.FC = () => {
             <header className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="max-w-[1920px] mx-auto px-4 py-4 flex items-center gap-4">
                     <button
-                        onClick={() => navigate(-1)}
+                        onClick={() => window.close()}
                         className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        aria-label="戻る"
+                        aria-label="閉じる"
                     >
-                        <ArrowLeft size={20} className="text-slate-600 dark:text-slate-400" />
+                        <X size={20} className="text-slate-600 dark:text-slate-400" />
                     </button>
                     <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-purple-500 font-['Zen_Maru_Gothic']">
                         評価（Trello）

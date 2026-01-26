@@ -63,6 +63,8 @@ export const Layout: React.FC = () => {
                         <Link
                             key={item.path}
                             to={item.path}
+                            target={item.path === '/evaluation' ? '_blank' : undefined}
+                            rel={item.path === '/evaluation' ? 'noopener noreferrer' : undefined}
                             onClick={() => setMobileOpen(false)}
                             className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 font-medium ${location.pathname === item.path
                                 ? 'bg-gradient-to-r from-cyan-500/10 to-purple-500/10 text-cyan-600 dark:text-cyan-400 shadow-sm'

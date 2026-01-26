@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useMaster } from '../contexts/MasterContext';
 import { Card, Button, Input } from '../components/ui';
-import { ArrowLeft, Plus, Edit2, Trash2, Eye, EyeOff, Check, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Eye, EyeOff, Check, X, ChevronUp, ChevronDown, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { v4 as uuidv4 } from 'uuid';
@@ -77,8 +77,26 @@ const DepartmentEditor = () => {
         setNewName('');
     };
 
+    // 括弧を復元する
+    const handleRestoreBrackets = async () => {
+        const defaultIds = ['dept-1', 'dept-2', 'dept-3', 'dept-4', 'dept-5', 'dept-6', 'dept-7', 'dept-8', 'dept-9', 'dept-10', 'dept-11', 'dept-12', 'dept-13', 'dept-14'];
+        for (const dept of departments) {
+            if (defaultIds.includes(dept.id) && !dept.name.startsWith('【')) {
+                await updateDepartment(dept.id, { name: `【${dept.name}】` });
+            }
+        }
+    };
+
     return (
         <div className="space-y-6">
+            <div className="flex justify-end">
+                <button
+                    onClick={handleRestoreBrackets}
+                    className="text-xs font-bold text-cyan-500 hover:text-cyan-600 transition-colors flex items-center gap-1"
+                >
+                    <Settings size={12} className="inline" /> デフォルト項目の【】を復元
+                </button>
+            </div>
             <div className="flex gap-2">
                 <Input
                     placeholder="新しい部門名..."
@@ -119,8 +137,26 @@ const WorkTypeEditor = () => {
         setNewName('');
     };
 
+    // 括弧を復元する
+    const handleRestoreBrackets = async () => {
+        const defaultIds = ['wt-1', 'wt-2', 'wt-3', 'wt-4'];
+        for (const wt of workTypes) {
+            if (defaultIds.includes(wt.id) && !wt.name.startsWith('【')) {
+                await updateWorkType(wt.id, { name: `【${wt.name}】` });
+            }
+        }
+    };
+
     return (
         <div className="space-y-6">
+            <div className="flex justify-end">
+                <button
+                    onClick={handleRestoreBrackets}
+                    className="text-xs font-bold text-cyan-500 hover:text-cyan-600 transition-colors flex items-center gap-1"
+                >
+                    <Settings size={12} className="inline" /> デフォルト項目の【】を復元
+                </button>
+            </div>
             <div className="flex gap-2">
                 <Input
                     placeholder="新しい作業種別..."
