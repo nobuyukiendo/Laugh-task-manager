@@ -1,7 +1,7 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-import './index.css'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -13,6 +13,15 @@ if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
         "⚠️ VITE_GOOGLE_CLIENT_ID is not set. Using fallback Google Client ID.\n" +
         "For optimal security, please set the environment variable in GitHub Secrets."
     );
+}
+
+// Trelloリダイレクト時のURL修正
+// Trelloは #/evaluation&token=... の形式でリダイレクトしてくるが、
+// HashRouterは /evaluation&token=... を1つのパスとして認識してしまう
+// これを #/evaluation?token=... に修正する
+if (window.location.hash.includes('&token=')) {
+    const fixedHash = window.location.hash.replace('&token=', '?token=');
+    window.location.hash = fixedHash;
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

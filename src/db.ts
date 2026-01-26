@@ -91,6 +91,34 @@ export interface Settings {
     };
 }
 
+export interface EmojiMaster {
+    id: string;
+    emoji: string; // 絵文字1文字
+    order: number;
+}
+
+export interface SavedCard {
+    id: string;
+    name: string;      // カード名(ユーザーが入力)
+    url: string;       // TrelloカードURL
+    createdAt: number; // 作成日時
+}
+
+export interface Link {
+    id: string;
+    name: string;  // ボタン名
+    url: string;   // リンク先URL
+    order: number; // 表示順序
+    icon?: string; // 追加: アイコン用の絵文字など
+}
+
+export interface LinkIcon {
+    id: string;
+    emoji: string;
+    order: number;
+}
+
+
 class AppDatabase extends Dexie {
     departments!: Table<Department, string>;
     workTypes!: Table<WorkType, string>;
@@ -100,6 +128,10 @@ class AppDatabase extends Dexie {
     locations!: Table<Location, string>;
     workLogs!: Table<WorkLog, string>;
     settings!: Table<Settings, string>;
+    emojiMasters!: Table<EmojiMaster, string>;
+    savedCards!: Table<SavedCard, string>;
+    links!: Table<Link, string>;
+    linkIcons!: Table<LinkIcon, string>;
 
     constructor() {
         super('TimeTrackerDB');
@@ -123,6 +155,26 @@ class AppDatabase extends Dexie {
 
         this.version(4).stores({
             locations: 'id, &name, order, enabled'
+        });
+
+        this.version(5).stores({
+            emojiMasters: 'id, emoji, order'
+        });
+
+        this.version(6).stores({
+            savedCards: 'id, name, url, createdAt'
+        });
+
+        this.version(7).stores({
+            links: 'id, name, url, order'
+        });
+
+        this.version(8).stores({
+            links: 'id, name, url, order, icon'
+        });
+
+        this.version(9).stores({
+            linkIcons: 'id, emoji, order'
         });
     }
 }
@@ -161,9 +213,17 @@ db.on('populate', async () => {
         timezone: 'Asia/Tokyo',
         rounding: 1, // Default 1 min
         weekStartsOnMonday: true,
+        afterMeasurement: 'stay',
         calendar: {
             connected: false,
             eventTitleTemplate: '【{Department}】 {WorkType}'
         }
     });
+
+    // Default Emoji Masters
+    await db.emojiMasters.bulkAdd([
+        { id: 'emoji-1', emoji: '✅', order: 1 },
+        { id: 'emoji-2', emoji: '👀', order: 2 },
+        { id: 'emoji-3', emoji: '🚧', order: 3 },
+    ]);
 });

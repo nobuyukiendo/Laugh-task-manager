@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Timer, History, BarChart2, Settings, Menu, X, Database, HelpCircle } from 'lucide-react';
+import { Sun, Moon, Timer, History, BarChart2, Settings, Menu, X, Database, HelpCircle, ClipboardCheck, ExternalLink } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 export const Layout: React.FC = () => {
@@ -12,6 +12,8 @@ export const Layout: React.FC = () => {
         { path: '/', label: '計測', icon: Timer },
         { path: '/timeline', label: '履歴', icon: History },
         { path: '/dashboard', label: '集計', icon: BarChart2 },
+        { path: '/evaluation', label: '評価（Trello）', icon: ClipboardCheck },
+        { path: '/links', label: 'リンク', icon: ExternalLink },
         { path: '/settings', label: '設定', icon: Settings },
         { path: '/master', label: 'マスタ', icon: Database },
         { path: '/help', label: 'ヘルプ', icon: HelpCircle },

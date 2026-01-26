@@ -1,0 +1,40 @@
+src/components/evaluation/CheckItemList.tsx(2,39): error TS6133: 'SmilePlus' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(2,50): error TS6133: 'Plus' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(4,1): error TS6133: 'updateCheckItem' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(6,1): error TS6133: 'useMaster' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(15,63): error TS6133: 'cardId' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(15,95): error TS6133: 'onItemUpdate' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(17,23): error TS6133: 'setEditingId' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(19,25): error TS6133: 'setUpdatingIds' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(23,24): error TS6133: 'setPreviewPos' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(24,11): error TS6133: 'hoverTimeoutRef' is declared but its value is never read.
+src/components/evaluation/CheckItemList.tsx(24,36): error TS2503: Cannot find namespace 'NodeJS'.
+src/components/evaluation/CheckItemList.tsx(54,46): error TS2304: Cannot find name 'handleLinkMouseEnter'.
+src/components/evaluation/CheckItemList.tsx(55,39): error TS2304: Cannot find name 'handleLinkMouseLeave'.
+src/components/evaluation/CheckItemList.tsx(108,52): error TS2304: Cannot find name 'handleKeyDown'.
+src/components/evaluation/CheckItemList.tsx(113,50): error TS2304: Cannot find name 'saveEdit'.
+src/components/evaluation/CheckItemList.tsx(123,58): error TS2304: Cannot find name 'startEditing'.
+src/components/evaluation/CheckItemList.tsx(136,60): error TS2304: Cannot find name 'handleAddEmoji'.
+src/components/evaluation/CheckItemList.tsx(149,56): error TS2304: Cannot find name 'startEditing'.
+src/components/evaluation/CheckItemList.tsx(168,35): error TS2304: Cannot find name 'handlePreviewMouseEnter'.
+src/components/evaluation/CheckItemList.tsx(169,35): error TS2304: Cannot find name 'handlePreviewMouseLeave'.
+src/components/evaluation/ItemPreviewPopover.tsx(3,32): error TS6196: 'TrelloCard' is declared but never used.
+src/components/evaluation/ItemPreviewPopover.tsx(37,5): error TS6133: 'cardId' is declared but its value is never read.
+src/components/evaluation/ItemPreviewPopover.tsx(44,31): error TS2503: Cannot find namespace 'NodeJS'.
+src/components/evaluation/LinkPreviewPopover.tsx(1,38): error TS6133: 'useRef' is declared but its value is never read.
+src/components/evaluation/LinkPreviewPopover.tsx(18,5): error TS6133: 'onClose' is declared but its value is never read.
+src/components/evaluation/SelfMarkingEditor.tsx(4,19): error TS6133: 'EmojiMaster' is declared but its value is never read.
+src/components/evaluation/WeeklyReportPanel.tsx(3,19): error TS6133: 'Department' is declared but its value is never read.
+src/contexts/TimerContext.tsx(28,11): error TS6133: 'applyRounding' is declared but its value is never read.
+src/contexts/TimerContext.tsx(124,23): error TS6133: 'nextDayBoundary' is declared but its value is never read.
+src/pages/DashboardPage.tsx(18,68): error TS6133: 'intervalToDuration' is declared but its value is never read.
+src/pages/TimerPage.tsx(6,10): error TS6133: 'Card' is declared but its value is never read.
+src/pages/TimerPage.tsx(7,16): error TS6133: 'Square' is declared but its value is never read.
+src/pages/TimerPage.tsx(7,24): error TS6133: 'Plus' is declared but its value is never read.
+src/pages/TimerPage.tsx(7,30): error TS6133: 'Search' is declared but its value is never read.
+src/pages/TimerPage.tsx(7,38): error TS6133: 'Building2' is declared but its value is never read.
+src/pages/TimerPage.tsx(7,49): error TS6133: 'Tag' is declared but its value is never read.
+src/pages/TimerPage.tsx(7,54): error TS6133: 'CircleSlash' is declared but its value is never read.
+src/pages/TimerPage.tsx(7,91): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/pages/TimerPage.tsx(8,1): error TS6133: 'WorkLog' is declared but its value is never read.
+src/pages/TimerPage.tsx(9,1): error TS6133: 'format' is declared but its value is never read.
