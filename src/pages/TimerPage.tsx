@@ -479,8 +479,8 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
                             </div>
                             {isDropdownOpen && (
                                 <>
-                                    <div className="fixed inset-0 z-[100]" onClick={() => setIsDropdownOpen(false)} />
-                                    <div className="absolute top-full left-0 right-0 mt-1 z-[101] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                                    <div className="fixed inset-0 z-[110]" onClick={() => setIsDropdownOpen(false)} />
+                                    <div className="absolute top-full left-0 right-0 mt-1 z-[111] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
                                         {partners.filter((p: any) => p.enabled).map((p: any) => {
                                             const isSelected = selectedPartnerIds.includes(p.id);
                                             return (

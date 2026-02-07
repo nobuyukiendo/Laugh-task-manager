@@ -221,7 +221,7 @@ export const MemoPage: React.FC = () => {
 
             {/* Edit Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
                         <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">
                             {editingMemo ? 'メモを編集' : '新規メモ'}

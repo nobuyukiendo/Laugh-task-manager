@@ -406,8 +406,8 @@ export const SchedulePage: React.FC = () => {
                                 <button
                                     onClick={() => handleToggleLock(card)}
                                     className={`w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${card.isLocked
-                                            ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                                            : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                        ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20'
+                                        : 'text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
                                         }`}
                                     title={card.isLocked ? "ロック解除" : "ロック"}
                                 >
@@ -495,7 +495,7 @@ export const SchedulePage: React.FC = () => {
 
             {/* Add Modal */}
             {isAddModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
                         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
                             タスクを追加
