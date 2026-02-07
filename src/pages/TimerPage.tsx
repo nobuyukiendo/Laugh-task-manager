@@ -3,17 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { useTimer } from '../contexts/TimerContext';
 import { useMaster } from '../contexts/MasterContext';
 import { useSettings } from '../contexts/SettingsContext';
-import { Card, Button, Input, Select, Label } from '../components/ui';
-import { Play, Square, Plus, Search, Building2, Tag, CircleSlash, History as HistoryIcon, ChevronRight, Book, CheckCircle2, X } from 'lucide-react';
-import { WorkLog } from '../db';
+import { Button, Input, Select, Label } from '../components/ui';
+import { Play, CheckCircle2, X, Edit2 } from 'lucide-react';
+import { WorkLog, db } from '../db';
 import { format } from 'date-fns';
 import { ActiveTimer } from '../components/ActiveTimer';
+import { SmartDetailInput } from '../components/SmartDetailInput';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 export const TimerPage: React.FC = () => {
     const timerContext = useTimer();
     const { activeLog, lastFinishedLog, startTimer, stopTimer } = timerContext;
+
+    // Track the recently finished log reactively
+    const recentLog = useLiveQuery<WorkLog | undefined>(
+        async () => {
+            if (!lastFinishedLog) return undefined;
+            return await db.workLogs.get(lastFinishedLog.id);
+        },
+        [lastFinishedLog?.id]
+    );
+
     const masterContext = useMaster();
-    const { departments, workTypes, detailTasks, recentDetailTasks, partners, locations, addDetailTask, addRecentDetailTask } = masterContext;
+    const { departments, workTypes, detailTasks, partners, locations, addDetailTask, addRecentDetailTask } = masterContext;
     const settingsContext = useSettings();
     const { settings } = settingsContext;
     const navigate = useNavigate();
@@ -124,11 +136,6 @@ export const TimerPage: React.FC = () => {
         );
     }
 
-    const formatTime = (sec: number) => {
-        const m = Math.floor(sec / 60);
-        return `${m}分`;
-    };
-
     return (
         <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 font-['Zen_Maru_Gothic']">
@@ -181,73 +188,12 @@ export const TimerPage: React.FC = () => {
                 </div>
 
                 {/* Detail Task */}
-                <div>
-                    <div className="flex justify-between items-center mb-1">
-                        <Label className="text-slate-600 dark:text-slate-400 font-bold block">作業詳細 (自由入力)</Label>
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-pink-600 dark:text-pink-400 hover:opacity-80 transition-opacity">
-                            <input
-                                type="checkbox"
-                                checked={saveToMaster}
-                                onChange={e => setSaveToMaster(e.target.checked)}
-                                className="w-4 h-4 rounded border-pink-300 text-pink-500 focus:ring-pink-200"
-                            />
-                            マスタに保存
-                        </label>
-                    </div>
-                    <div className="relative group">
-                        <div className="flex gap-2">
-                            <Input
-                                placeholder="作業詳細を入力..."
-                                value={detailName}
-                                onChange={e => setDetailName(e.target.value)}
-                                className="flex-1 bg-slate-50 dark:bg-slate-800 border-pink-100 dark:border-slate-700 rounded-xl py-3"
-                            />
-
-                            {/* Master Tasks Dropdown */}
-                            <div className="relative">
-                                <Select
-                                    value=""
-                                    onChange={e => {
-                                        if (e.target.value) setDetailName(e.target.value);
-                                    }}
-                                    className="w-12 h-full opacity-0 absolute inset-0 cursor-pointer z-10"
-                                    title="マスタから選択"
-                                >
-                                    <option value="" disabled className="font-bold text-slate-500">【マスタ】</option>
-                                    {detailTasks.filter(d => d.enabled).map(d => (
-                                        <option key={d.id} value={d.name}>{d.name}</option>
-                                    ))}
-                                </Select>
-                                <Button variant="secondary" className="h-full px-3" title="マスタから選択">
-                                    <Book size={18} />
-                                </Button>
-                            </div>
-
-                            {/* Recent Tasks Dropdown */}
-                            <div className="relative">
-                                <Select
-                                    value=""
-                                    onChange={e => {
-                                        if (e.target.value) setDetailName(e.target.value);
-                                    }}
-                                    className="w-12 h-full opacity-0 absolute inset-0 cursor-pointer z-10"
-                                    title="履歴から選択"
-                                >
-                                    <option value="" disabled className="font-bold text-slate-500">【履歴】</option>
-                                    {recentDetailTasks.map(r => (
-                                        <option key={r.id} value={r.name}>{r.name}</option>
-                                    ))}
-                                </Select>
-                                <Button variant="secondary" className="h-full px-3" title="履歴から選択">
-                                    <HistoryIcon size={18} />
-                                </Button>
-                            </div>
-                        </div>
-                        <p className="mt-2 text-[10px] text-slate-400">
-                            ※ 直接入力するか、右側のボタンからマスタ・履歴を呼び出せます
-                        </p>
-                    </div>
-                </div>
+                <SmartDetailInput
+                    value={detailName}
+                    onChange={setDetailName}
+                    saveToMaster={saveToMaster}
+                    onSaveToMasterChange={setSaveToMaster}
+                />
 
                 <div className="pt-4">
                     <Button
@@ -271,37 +217,149 @@ export const TimerPage: React.FC = () => {
             </div>
 
             {/* Last Log Summary (Stay Mode) */}
-            {lastFinishedLog && (
-                <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 rounded-xl p-4 animate-in fade-in slide-in-from-bottom-2">
-                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">今回登録した内容</h3>
-                    <div className="flex justify-between items-center">
-                        <div className="space-y-1">
-                            <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                {departments.find(d => d.id === lastFinishedLog.departmentId)?.name || '部門不明'}
-                                {lastFinishedLog.workTypeId && (
-                                    <>
-                                        <span className="text-slate-300 mx-1">/</span>
-                                        {workTypes.find(w => w.id === lastFinishedLog.workTypeId)?.name || ''}
-                                    </>
-                                )}
-                            </div>
-                            {(lastFinishedLog.detailTaskNames?.[0] || lastFinishedLog.detailTaskIds.length > 0) && (
-                                <div className="text-xs text-slate-600 dark:text-slate-400">
-                                    {lastFinishedLog.detailTaskNames?.[0] || '詳細タスク'}
-                                </div>
-                            )}
-                        </div>
-                        <div className="text-right">
-                            <div className="text-lg font-black font-mono text-cyan-600 dark:text-cyan-400">
-                                {formatTime(lastFinishedLog.durationSec)}
-                            </div>
-                            <div className="text-[10px] text-slate-400">
-                                {new Date(lastFinishedLog.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(lastFinishedLog.endAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                        </div>
+            {recentLog && (
+                <EditableLogCard log={recentLog} departments={departments} workTypes={workTypes} />
+            )}
+        </div>
+    );
+};
+
+// --- Editable Log Card ---
+const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: any[] }> = ({ log, departments, workTypes }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValues, setEditValues] = useState({ start: '', end: '' });
+
+    // Initialize inputs when entering edit mode
+    useEffect(() => {
+        if (isEditing) {
+            setEditValues({
+                start: format(log.startAt, 'HH:mm'),
+                end: log.endAt ? format(log.endAt, 'HH:mm') : ''
+            });
+        }
+    }, [isEditing, log]);
+
+    const handleSave = async () => {
+        if (!editValues.start || !editValues.end) return;
+
+        const baseDate = new Date(log.startAt);
+        const [startH, startM] = editValues.start.split(':').map(Number);
+        const [endH, endM] = editValues.end.split(':').map(Number);
+
+        // Construct new timestamps properly preserving the original date
+        const newStart = new Date(baseDate);
+        newStart.setHours(startH, startM, 0, 0);
+
+        const newEnd = new Date(baseDate);
+        newEnd.setHours(endH, endM, 0, 0);
+
+        // Validate time range
+        if (newEnd < newStart) {
+            alert('終了時刻は開始時刻より後の時間を指定してください');
+            return;
+        }
+
+        const durationSec = (newEnd.getTime() - newStart.getTime()) / 1000;
+
+        await db.workLogs.update(log.id, {
+            startAt: newStart.getTime(),
+            endAt: newEnd.getTime(),
+            durationSec,
+            updatedAt: Date.now()
+        });
+
+        setIsEditing(false);
+    };
+
+    const formatTime = (sec: number) => {
+        const m = Math.floor(sec / 60);
+        return `${m}分`;
+    };
+
+    if (isEditing) {
+        return (
+            <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 shadow-lg animate-in zoom-in-95 duration-200">
+                <h3 className="text-xs font-bold text-indigo-500 mb-3 flex items-center justify-between">
+                    <span>時間を編集</span>
+                    <span className="text-[10px] text-slate-400">※直近の1件のみ</span>
+                </h3>
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="flex-1">
+                        <label className="text-[10px] text-slate-500 block mb-1">開始</label>
+                        <input
+                            type="time"
+                            value={editValues.start}
+                            onChange={e => setEditValues({ ...editValues, start: e.target.value })}
+                            className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm font-bold text-center"
+                        />
+                    </div>
+                    <div className="text-slate-300 mt-4">→</div>
+                    <div className="flex-1">
+                        <label className="text-[10px] text-slate-500 block mb-1">終了</label>
+                        <input
+                            type="time"
+                            value={editValues.end}
+                            onChange={e => setEditValues({ ...editValues, end: e.target.value })}
+                            className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm font-bold text-center"
+                        />
                     </div>
                 </div>
-            )}
+                <div className="flex justify-end gap-2">
+                    <button
+                        onClick={() => setIsEditing(false)}
+                        className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                    >
+                        キャンセル
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        className="px-3 py-1.5 text-xs font-bold bg-indigo-500 text-white hover:bg-indigo-600 rounded-lg shadow-md transition-all flex items-center gap-1"
+                    >
+                        <CheckCircle2 size={12} />
+                        保存
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 rounded-xl p-4 animate-in fade-in slide-in-from-bottom-2 group relative">
+            <button
+                onClick={() => setIsEditing(true)}
+                className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                title="時間を編集"
+            >
+                <Edit2 size={14} />
+            </button>
+
+            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">今回登録した内容</h3>
+            <div className="flex justify-between items-center">
+                <div className="space-y-1">
+                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        {departments.find(d => d.id === log.departmentId)?.name || '部門不明'}
+                        {log.workTypeId && (
+                            <>
+                                <span className="text-slate-300 mx-1">/</span>
+                                {workTypes.find(w => w.id === log.workTypeId)?.name || ''}
+                            </>
+                        )}
+                    </div>
+                    {(log.detailTaskNames?.[0] || log.detailTaskIds.length > 0) && (
+                        <div className="text-xs text-slate-600 dark:text-slate-400">
+                            {log.detailTaskNames?.[0] || '詳細タスク'}
+                        </div>
+                    )}
+                </div>
+                <div className="text-right pr-2">
+                    <div className="text-lg font-black font-mono text-cyan-600 dark:text-cyan-400">
+                        {formatTime(log.durationSec)}
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                        {format(log.startAt, 'HH:mm')} - {log.endAt ? format(log.endAt, 'HH:mm') : '???'}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
@@ -318,9 +376,10 @@ interface TextGeneratorPanelProps {
 const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, workTypes, partners, locations, onApply }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [action, setAction] = useState<'send' | 'check'>('send');
-    const [partnerId, setPartnerId] = useState('');
+    const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([]);
     const [locationId, setLocationId] = useState('');
     const [content, setContent] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const targetWorkType = workTypes.find(w => w.id === workTypeId);
     const isTarget = targetWorkType && (targetWorkType.name.includes('社内メッセージ') || targetWorkType.name.includes('社内メッセージ確認'));
@@ -340,16 +399,30 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
 
     if (!isVisible) return null;
 
-    const partnerName = partners.find(p => p.id === partnerId)?.name || '';
     const locationName = locations.find(l => l.id === locationId)?.name || '';
-
     const locationPrefix = locationName ? `${locationName}で、` : '';
 
-    const generatedText = action === 'send'
-        ? `${locationPrefix}${partnerName}に${content}についてのメッセージ送信`
-        : `${locationPrefix}${partnerName}の${content}についてのメッセージ確認`;
+    const getPartnerNames = () => {
+        if (selectedPartnerIds.length === 0) return '';
+        return partners
+            .filter(p => selectedPartnerIds.includes(p.id))
+            .map(p => p.name)
+            .join(', ');
+    };
 
-    const isValid = partnerId && content.trim().length > 0;
+    const partnerNames = getPartnerNames();
+
+    const generatedText = action === 'send'
+        ? `${locationPrefix}${partnerNames}に${content}についてのメッセージ送信`
+        : `${locationPrefix}${partnerNames}の${content}についてのメッセージ確認`;
+
+    const isValid = selectedPartnerIds.length > 0 && content.trim().length > 0;
+
+    const togglePartner = (id: string) => {
+        setSelectedPartnerIds(prev =>
+            prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+        );
+    };
 
     return (
         <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl animate-in fade-in slide-in-from-top-2">
@@ -360,19 +433,21 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
 
             <div className="space-y-4">
                 {/* Action Selector */}
-                <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
-                    <button
-                        onClick={() => setAction('send')}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'send' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                    >
-                        送信（〜に）
-                    </button>
-                    <button
-                        onClick={() => setAction('check')}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'check' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                    >
-                        確認（〜の）
-                    </button>
+                <div className="flex items-center gap-2">
+                    <div className="flex flex-1 bg-white dark:bg-slate-800 p-1 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
+                        <button
+                            onClick={() => setAction('send')}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'send' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                        >
+                            送信（〜に）
+                        </button>
+                        <button
+                            onClick={() => setAction('check')}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'check' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                        >
+                            確認（〜の）
+                        </button>
+                    </div>
                 </div>
 
                 {/* Inputs */}
@@ -388,16 +463,48 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
                                 <option key={l.id} value={l.id}>{l.name}</option>
                             ))}
                         </Select>
-                        <Select
-                            value={partnerId}
-                            onChange={e => setPartnerId(e.target.value)}
-                            className="text-sm py-2 flex-[2]"
-                        >
-                            <option value="">相手を選択</option>
-                            {partners.filter((p: any) => p.enabled).map((p: any) => (
-                                <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
-                        </Select>
+
+                        {/* Partner Selection (Always Multi-select Dropdown) */}
+                        <div className="relative flex-[2]">
+                            <div
+                                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm cursor-pointer flex justify-between items-center hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <span className={`block truncate ${selectedPartnerIds.length > 0 ? 'text-slate-900 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    {selectedPartnerIds.length > 0
+                                        ? `${selectedPartnerIds.length}名選択中`
+                                        : '相手を選択 (複数可)'}
+                                </span>
+                                <span className="text-slate-400 text-xs">▼</span>
+                            </div>
+                            {isDropdownOpen && (
+                                <>
+                                    <div className="fixed inset-0 z-[100]" onClick={() => setIsDropdownOpen(false)} />
+                                    <div className="absolute top-full left-0 right-0 mt-1 z-[101] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                                        {partners.filter((p: any) => p.enabled).map((p: any) => {
+                                            const isSelected = selectedPartnerIds.includes(p.id);
+                                            return (
+                                                <div
+                                                    key={p.id}
+                                                    onClick={() => togglePartner(p.id)}
+                                                    className={`px-3 py-2 text-sm cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 flex items-center gap-3 border-b border-slate-50 dark:border-slate-700/50 last:border-0 ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/10' : ''}`}
+                                                >
+                                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700'}`}>
+                                                        {isSelected && <CheckCircle2 size={10} className="text-white" />}
+                                                    </div>
+                                                    <span className={isSelected ? 'font-bold text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-300'}>
+                                                        {p.name}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                        {partners.length === 0 && (
+                                            <div className="p-3 text-sm text-slate-400 text-center">相手マスタがありません</div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </div>
                     <Input
                         placeholder="例：日程調整／見積もり"
@@ -414,7 +521,7 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-indigo-100 dark:border-indigo-800/50">
                     <div className="text-[10px] text-slate-400 mb-1">プレビュー</div>
                     <div className="text-sm font-medium text-slate-700 dark:text-slate-200 min-h-[1.25rem]">
-                        {partnerId || content ? generatedText : <span className="text-slate-300">入力するとここにプレビューが表示されます</span>}
+                        {(selectedPartnerIds.length > 0) || content ? generatedText : <span className="text-slate-300">入力するとここにプレビューが表示されます</span>}
                     </div>
                 </div>
 

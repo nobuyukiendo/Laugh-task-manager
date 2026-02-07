@@ -132,6 +132,8 @@ class AppDatabase extends Dexie {
     savedCards!: Table<SavedCard, string>;
     links!: Table<Link, string>;
     linkIcons!: Table<LinkIcon, string>;
+    memoCards!: Table<MemoCard, string>;
+    scheduleCards!: Table<ScheduleCard, string>;
 
     constructor() {
         super('TimeTrackerDB');
@@ -176,10 +178,47 @@ class AppDatabase extends Dexie {
         this.version(9).stores({
             linkIcons: 'id, emoji, order'
         });
+
+        this.version(10).stores({
+            memoCards: 'id, order, targetDate',
+            scheduleCards: 'id, status, order'
+        });
+
+        this.version(11).stores({
+            scheduleCards: 'id, status, order, isLocked'
+        });
     }
 }
 
 export const db = new AppDatabase();
+
+export interface MemoCard {
+    id: string;
+    title: string;
+    body: string;
+    targetDate?: string; // YYYY-MM-DD
+    dueDate?: string;    // YYYY-MM-DD
+    order: number;
+    createdAt: number;
+    updatedAt: number;
+}
+
+export interface ScheduleCard {
+    id: string;
+    title: string;
+    deptId: string;
+    workTypeId: string;
+    detailTask: string;
+    status: 'todo' | 'doing' | 'done';
+    order: number;
+    createdAt: number;
+    updatedAt: number;
+    runCount: number;
+    lastStartedAt?: number;
+    lastEndedAt?: number;
+    lastHistoryId?: string;
+    isLocked?: boolean;
+}
 
 // Initial data population
 db.on('populate', async () => {

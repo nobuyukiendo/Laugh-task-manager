@@ -17,6 +17,8 @@ import { SearchPage } from './pages/SearchPage';
 import { HelpPage } from './pages/HelpPage';
 import { EvaluationPage } from './pages/EvaluationPage';
 import { LinksPage } from './pages/LinksPage';
+import { MemoPage } from './pages/MemoPage';
+import { SchedulePage } from './pages/SchedulePage';
 
 // Placeholder Pages - Will replace with real ones
 // (Removed)
@@ -64,6 +66,8 @@ function App() {
                             {/* 通常ページ（Layout内） */}
                             <Route path="/" element={<Layout />}>
                                 <Route index element={<TimerPage />} />
+                                <Route path="memo" element={<MemoPage />} />
+                                <Route path="schedule" element={<SchedulePage />} />
                                 <Route path="timeline" element={<TimelinePage />} />
                                 <Route path="dashboard" element={<DashboardPage />} />
                                 <Route path="search" element={<SearchPage />} />
