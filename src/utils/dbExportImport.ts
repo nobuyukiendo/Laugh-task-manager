@@ -8,36 +8,10 @@ export interface BackupData {
     tables: {
         [tableName: string]: any[];
     };
+    localStorage: {
+        [key: string]: string;
+    };
 }
-
-// EXCLUDE_TABLES removed as it was unused and we decided to include everything.
-// However, overwriting auth tokens might break current session if tokens are different. But data load is "Emergency Restore".
-// User Requirements: "PCで使っていたアプリのデータを...ロードして完全に復元できる"
-// "Google Login -> Load Button -> Overwrite Local".
-// If we overwrite local `settings` with PC's settings, the `accessToken` might be old or invalid for the current session on Phone (if session-based).
-// BUT new session token is in memory/settings?
-// If we overwrite `settings` table, we lose the *current* valid token used to fetch the backup!
-// CRITICAL: Restore process uses *current* token to fetch backup.
-// If we overwrite `settings`, we might lose that token (if it's stored in DB).
-// Actually, `useGoogleCalendar` stores token in `settings` table.
-// So we must BE CAREFUL not to overwrite the *current* connection info with the *backup* connection info (which might be expired/different).
-// Strategy:
-// 1. Export: Include everything.
-// 2. Import:
-//    - Backup current `settings.calendar` (auth info).
-//    - Clear DB.
-//    - Import all tables.
-//    - Restore `settings.calendar` (to keep current session alive).
-//    Wait, user said "Fully Overwrite".
-//    If I overwrite, the user is logged out?
-//    "Re-login is fine" might be acceptable, but better UX is to keep the session.
-//    Let's exclude `settings` from overwrite, OR merge it.
-//    Actually, user said: "Cache clear -> Data Loss -> Restore".
-//    In that case, `settings` are gone anyway.
-//    But in "Phone Migration":
-//    Phone has simple settings. PC has rich data.
-//    We probably want to keep the *current* device's Auth state active.
-//    Let's preserve `calendar` auth part of settings during import.
 
 // List of all table names in db
 const TABLE_NAMES = [
@@ -61,15 +35,50 @@ export const exportAllData = async (): Promise<string> => {
     const backup: BackupData = {
         version: 1,
         timestamp: Date.now(),
-        tables: {}
+        tables: {},
+        localStorage: {}
     };
 
+    // 1. Export DB Tables
     await db.transaction('r', TABLE_NAMES.map(name => db.table(name)), async () => {
         for (const name of TABLE_NAMES) {
             const rows = await db.table(name).toArray();
             backup.tables[name] = rows;
         }
     });
+
+    // 2. Export LocalStorage
+    // We explicitly list prefixes and keys to back up to avoid polluting the backup with random extension data.
+    const STORAGE_PREFIXES = [
+        'weeklyReportEditorial_',
+        'trello.'
+    ];
+    const STORAGE_KEYS = [
+        'dailyComments',
+        'deptColorMapping',
+        'dashboardPeriod',
+        'defaultDeptId',
+        'links_form_expanded',
+        'app_theme',
+        'position_order',
+        'last_selected_position'
+    ];
+
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        const shouldBackup =
+            STORAGE_KEYS.includes(key) ||
+            STORAGE_PREFIXES.some(prefix => key.startsWith(prefix));
+
+        if (shouldBackup) {
+            const value = localStorage.getItem(key);
+            if (value !== null) {
+                backup.localStorage[key] = value;
+            }
+        }
+    }
 
     return JSON.stringify(backup);
 };
@@ -81,7 +90,7 @@ export const importAllData = async (jsonString: string): Promise<void> => {
     const currentSettings = await db.settings.get('config');
     const currentAuth = currentSettings?.calendar;
 
-    // 2. Clear and Import
+    // 2. Clear and Import DB
     await db.transaction('rw', TABLE_NAMES.map(name => db.table(name)), async () => {
         // Clear all tables
         for (const name of TABLE_NAMES) {
@@ -96,21 +105,19 @@ export const importAllData = async (jsonString: string): Promise<void> => {
         }
 
         // 3. Restore Auth State if it existed (Override imported auth)
-        // We trust the *current* sessions over the backup's potentially expired session.
         if (currentAuth) {
             const importedSettings = await db.settings.get('config');
             if (importedSettings) {
                 await db.settings.update('config', {
                     calendar: {
-                        ...importedSettings.calendar, // Keep imported template settings etc.
-                        connected: true, // Force connected if we were connected
+                        ...importedSettings.calendar,
+                        connected: true,
                         accessToken: currentAuth.accessToken,
                         tokenExpiresAt: currentAuth.tokenExpiresAt,
                         refreshToken: currentAuth.refreshToken
                     }
                 });
             } else {
-                // If backup didn't have settings (weird), recreate basic
                 await db.settings.add({
                     key: 'config',
                     timezone: 'Asia/Tokyo',
@@ -122,4 +129,11 @@ export const importAllData = async (jsonString: string): Promise<void> => {
             }
         }
     });
+
+    // 3. Import LocalStorage
+    if (backup.localStorage) {
+        Object.entries(backup.localStorage).forEach(([key, value]) => {
+            localStorage.setItem(key, value);
+        });
+    }
 };
