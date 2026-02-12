@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Timer, History, BarChart2, Settings, Menu, X, Database, HelpCircle, ClipboardCheck, ExternalLink, StickyNote, Calendar } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db';
+import { Sun, Moon, Timer, History, BarChart2, Settings, Menu, X, Database, HelpCircle, ClipboardCheck, ExternalLink, StickyNote, Calendar, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 export const Layout: React.FC = () => {
@@ -95,9 +97,42 @@ export const Layout: React.FC = () => {
                 className={`transition-all duration-300 md:ml-72 min-h-screen`}
             >
                 <div className="max-w-3xl mx-auto px-4 py-8 pt-20 md:pt-16 md:px-12 w-full">
+                    <DataRecoveryBanner />
                     <Outlet />
                 </div>
             </main>
+        </div>
+    );
+};
+
+const DataRecoveryBanner: React.FC = () => {
+    const logCount = useLiveQuery(async () => {
+        return await db.workLogs.count();
+    });
+
+    // Don't show if loading or if there is data
+    if (typeof logCount === 'undefined' || logCount > 0) return null;
+
+    return (
+        <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 p-4 rounded shadow-sm animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-start gap-3">
+                <AlertTriangle className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" size={20} />
+                <div className="space-y-1">
+                    <p className="font-bold text-blue-800 dark:text-blue-200 text-sm">
+                        データがありません
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
+                        初回利用の方はそのままお使いください。<br />
+                        もしデータが消えてしまった場合は、Google Driveから復元できます。
+                    </p>
+                    <Link
+                        to="/settings"
+                        className="inline-block mt-2 text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                        → 設定画面で復元する
+                    </Link>
+                </div>
+            </div>
         </div>
     );
 };

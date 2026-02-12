@@ -88,6 +88,7 @@ export interface Settings {
         selectedCalendarId?: string;
         eventTitleTemplate: string;
         lastSyncTime?: number;
+        lastBackupAt?: number;
     };
 }
 

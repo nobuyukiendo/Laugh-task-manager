@@ -12,6 +12,8 @@ import { useGoogleCalendar, ImportEvent } from '../hooks/useGoogleCalendar';
 import { ImportGCalModal } from '../components/ImportGCalModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { exportAllData } from '../utils/dbExportImport';
+import { googleDriveService } from '../services/googleDriveService';
 
 export const TimelinePage: React.FC = () => {
     const navigate = useNavigate();
@@ -20,7 +22,7 @@ export const TimelinePage: React.FC = () => {
         return (location.state as any)?.highlightedLogId || null;
     });
 
-    const { settings } = useSettings();
+    const { settings, updateSettings } = useSettings();
     const { departments, workTypes, detailTasks, recentDetailTasks, addDetailTask, addRecentDetailTask } = useMaster();
 
     // Date Navigation
@@ -151,16 +153,50 @@ export const TimelinePage: React.FC = () => {
         setSyncErrors(newErrors);
         setSyncProgress(prev => ({ ...prev, status: 'done' }));
 
-        setTimeout(() => {
-            // Optional: reset progress after a few seconds? 
-            // Or keep it visible. Let's keep it until date change or next action.
-        }, 5000);
-
+        let message = `転記完了\n作成: ${createdCount}件\n更新: ${updatedCount}件`;
         if (failedCount > 0) {
-            alert(`転記完了\n作成: ${createdCount}件\n更新: ${updatedCount}件\n失敗: ${failedCount}件 (赤枠の項目を確認してください)`);
-        } else {
-            alert(`転記完了\n作成: ${createdCount}件\n更新: ${updatedCount}件`);
+            message += `\n失敗: ${failedCount}件 (赤枠の項目を確認してください)`;
         }
+
+        // --- Auto Backup Logic ---
+        // Only run if at least one operation attempted (connected valid)
+        // User rule: "Always overwrite on successful login".
+        // Trigger condition: "Google Calendar Transfer Execution".
+        if (settings.calendar.accessToken) {
+            try {
+                // 1. Export Data
+                const jsonData = await exportAllData();
+                const fileName = 'laugh-task-manager-data.json';
+
+                // 2. Find existing file
+                const existingFile = await googleDriveService.findFile(settings.calendar.accessToken, fileName);
+
+                // 3. Upload (Create or Update)
+                await googleDriveService.uploadFile(
+                    settings.calendar.accessToken,
+                    fileName,
+                    jsonData,
+                    existingFile?.id
+                );
+
+                // 4. Update local timestamp
+                await updateSettings({
+                    calendar: {
+                        ...settings.calendar,
+                        lastBackupAt: Date.now()
+                    }
+                });
+
+                message += `\n\n✅ Google Driveへのバックアップが完了しました`;
+            } catch (backupError: any) {
+                console.error("Auto Backup Failed", backupError);
+                message += `\n\n⚠️ Google Driveへのバックアップに失敗しました: ${backupError.message || '不明なエラー'}`;
+                message += `\n\n※ 権限不足の可能性があります。「設定」画面でGoogle連携を解除し、再接続してください。`;
+            }
+        }
+        // -------------------------
+
+        alert(message);
     };
 
     const handleSingleSync = async (log: WorkLog) => {

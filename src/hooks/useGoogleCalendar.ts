@@ -58,7 +58,7 @@ export const useGoogleCalendar = () => {
             console.error("[OAuth] Login Failed", error);
             alert("ログインに失敗しました。");
         },
-        scope: 'https://www.googleapis.com/auth/calendar.events',
+        scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.file',
         // flow: 'implicit', // default is implicit
     });
 

@@ -4,6 +4,8 @@ import { Card, Button, Select, Label } from '../components/ui';
 import { useNavigate } from 'react-router-dom';
 import { Settings as SettingsIcon, Database, Calendar, Globe } from 'lucide-react';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
+import { googleDriveService } from '../services/googleDriveService';
+import { importAllData } from '../utils/dbExportImport';
 
 export const SettingsPage: React.FC = () => {
     const { settings, updateSettings, isLoading } = useSettings();
@@ -127,17 +129,58 @@ export const SettingsPage: React.FC = () => {
                             <div className="p-3 bg-green-900/20 text-green-400 rounded-md text-sm">
                                 ✓ 接続済み
                             </div>
-                            <Button variant="secondary" onClick={() => updateSettings({
-                                calendar: {
-                                    ...settings.calendar,
-                                    connected: false,
-                                    accessToken: undefined,
-                                    refreshToken: undefined,
-                                    tokenExpiresAt: 0
-                                }
-                            })}>
-                                解除
-                            </Button>
+
+                            {/* Backup Status */}
+                            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
+                                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">最終バックアップ (Google Drive)</div>
+                                <div className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">
+                                    {settings.calendar.lastBackupAt
+                                        ? new Date(settings.calendar.lastBackupAt).toLocaleString()
+                                        : 'まだ保存されていません'}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button variant="secondary" onClick={() => updateSettings({
+                                    calendar: {
+                                        ...settings.calendar,
+                                        connected: false,
+                                        accessToken: undefined,
+                                        refreshToken: undefined,
+                                        tokenExpiresAt: 0
+                                    }
+                                })}>
+                                    連携解除
+                                </Button>
+
+                                <Button
+                                    variant="secondary"
+                                    className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                    onClick={async () => {
+                                        if (!settings.calendar.accessToken) return;
+                                        if (!confirm('Google Driveに保存されているデータをロードします。\n現在のローカルデータはすべて上書きされます。\n\n本当にロードしますか？')) return;
+
+                                        try {
+                                            const file = await googleDriveService.findFile(settings.calendar.accessToken, 'laugh-task-manager-data.json');
+                                            if (!file) {
+                                                alert('Google Driveにバックアップファイルが見つかりませんでした。');
+                                                return;
+                                            }
+
+                                            const json = await googleDriveService.downloadFile(settings.calendar.accessToken, file.id);
+                                            await importAllData(json);
+
+                                            alert('データの復元が完了しました。画面をリロードします。');
+                                            window.location.reload();
+                                        } catch (e) {
+                                            console.error(e);
+                                            alert('復元に失敗しました。');
+                                        }
+                                    }}
+                                >
+                                    Driveから復元
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </div>
