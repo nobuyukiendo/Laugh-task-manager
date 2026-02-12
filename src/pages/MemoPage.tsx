@@ -2,9 +2,162 @@ import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, MemoCard } from '../db';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, Trash2, Edit2, Calendar, ArrowUp, ArrowDown, CheckSquare } from 'lucide-react';
+import { Plus, Trash2, Edit2, Calendar, CheckSquare, GripVertical, Check, X } from 'lucide-react';
 import { useMaster } from '../contexts/MasterContext';
 import { SmartDetailInput } from '../components/SmartDetailInput';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    useSortable,
+    rectSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// --- Sortable Item Component with Quick Edit ---
+interface SortableMemoItemProps {
+    memo: MemoCard;
+    onEdit: (memo: MemoCard) => void;
+    onDelete: (id: string) => void;
+    onTaskify: (memo: MemoCard) => void;
+    onQuickEditSave: (id: string, newBody: string) => void;
+}
+
+const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDelete, onTaskify, onQuickEditSave }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: memo.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 10 : 1,
+        opacity: isDragging ? 0.5 : 1
+    };
+
+    const [isQuickEditing, setIsQuickEditing] = useState(false);
+    const [quickEditBody, setQuickEditBody] = useState(memo.body);
+
+    // Sync body when memo updates externally
+    useEffect(() => {
+        setQuickEditBody(memo.body);
+    }, [memo.body]);
+
+    const handleQuickSave = () => {
+        if (quickEditBody !== memo.body) {
+            onQuickEditSave(memo.id, quickEditBody);
+        }
+        setIsQuickEditing(false);
+    };
+
+    const handleCancelQuickEdit = () => {
+        setQuickEditBody(memo.body);
+        setIsQuickEditing(false);
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 hover:shadow-md transition-all relative group flex flex-col h-full"
+        >
+            {/* Action Buttons Row */}
+            <div className="flex justify-between items-start mb-2">
+                {/* Drag Handle */}
+                <button
+                    {...attributes}
+                    {...listeners}
+                    className="p-1.5 text-slate-300 hover:text-slate-600 cursor-grab active:cursor-grabbing touch-none"
+                    title="ドラッグして並び替え"
+                >
+                    <GripVertical size={16} />
+                </button>
+
+                <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); onTaskify(memo); }} className="p-1.5 text-slate-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg" title="タスク化">
+                        <CheckSquare size={16} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(memo); }} className="p-1.5 text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg" title="編集">
+                        <Edit2 size={16} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(memo.id); }} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg" title="削除">
+                        <Trash2 size={16} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100 mb-2 leading-relaxed px-1">
+                {memo.title || <span className="text-slate-400 italic">無題</span>}
+            </h3>
+
+            {/* Quick Edit Body Area */}
+            {isQuickEditing ? (
+                <div className="flex-1 flex flex-col gap-2">
+                    <textarea
+                        value={quickEditBody}
+                        onChange={(e) => setQuickEditBody(e.target.value)}
+                        className="w-full bg-indigo-50 dark:bg-slate-200 border border-indigo-200 dark:border-slate-600 rounded-lg p-2 text-sm text-slate-800 dark:text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none resize-none min-h-[5rem]"
+                        autoFocus
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.ctrlKey) handleQuickSave();
+                            if (e.key === 'Escape') handleCancelQuickEdit();
+                        }}
+                    />
+                    <div className="flex justify-end gap-2">
+                        <button onClick={handleCancelQuickEdit} className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
+                            <X size={16} />
+                        </button>
+                        <button onClick={handleQuickSave} className="p-1 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded">
+                            <Check size={16} />
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div
+                    onClick={() => setIsQuickEditing(true)} // Enable quick edit on click
+                    className="flex-1 text-slate-600 dark:text-slate-400 text-sm whitespace-pre-wrap line-clamp-5 min-h-[4rem] cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded p-1 -m-1 transition-colors"
+                    title="クリックして簡易編集"
+                >
+                    {memo.body || <span className="text-slate-300">メモの内容を入力...</span>}
+                </div>
+            )}
+
+            {/* Dates */}
+            {(memo.targetDate || memo.dueDate) && (
+                <div className="flex flex-wrap gap-2 text-xs pt-4 mt-auto border-t border-slate-100 dark:border-slate-700/50">
+                    {memo.targetDate && (
+                        <div className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 px-2 py-0.5 rounded-full">
+                            <Calendar size={12} />
+                            <span>対象: {memo.targetDate}</span>
+                        </div>
+                    )}
+                    {memo.dueDate && (
+                        <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
+                            <Calendar size={12} />
+                            <span>期限: {memo.dueDate}</span>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 export const MemoPage: React.FC = () => {
     // Queries
@@ -33,6 +186,14 @@ export const MemoPage: React.FC = () => {
     // Master Data for Taskify
     const masterContext = useMaster();
     const { departments, workTypes } = masterContext;
+
+    // DnD Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     // Reset form when modal opens/closes
     useEffect(() => {
@@ -69,26 +230,37 @@ export const MemoPage: React.FC = () => {
         setEditingMemo(null);
     };
 
+    const handleQuickEditSave = async (id: string, newBody: string) => {
+        await db.memoCards.update(id, {
+            body: newBody,
+            updatedAt: Date.now()
+        });
+    };
+
     const handleDelete = async (id: string) => {
         if (confirm('このメモを削除しますか？')) {
             await db.memoCards.delete(id);
         }
     };
 
-    const handleMove = async (id: string, direction: 'up' | 'down') => {
-        if (!memos) return;
-        const index = memos.findIndex(m => m.id === id);
-        if (index === -1) return;
-        if (direction === 'up' && index === 0) return;
-        if (direction === 'down' && index === memos.length - 1) return;
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
 
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        const targetMemo = memos[targetIndex];
-        const currentMemo = memos[index];
+        if (active.id !== over?.id && memos) {
+            const oldIndex = memos.findIndex((m) => m.id === active.id);
+            const newIndex = memos.findIndex((m) => m.id === over?.id);
 
-        // Swap orders
-        await db.memoCards.update(currentMemo.id, { order: targetMemo.order });
-        await db.memoCards.update(targetMemo.id, { order: currentMemo.order });
+            const newMemos = arrayMove(memos, oldIndex, newIndex);
+
+            // Optimistic update (UI flickers less)
+            // But we need to update DB.
+            // Update orders in DB
+            await db.transaction('rw', db.memoCards, async () => {
+                for (let i = 0; i < newMemos.length; i++) {
+                    await db.memoCards.update(newMemos[i].id, { order: i + 1 });
+                }
+            });
+        }
     };
 
     // --- Taskify Logic ---
@@ -105,8 +277,6 @@ export const MemoPage: React.FC = () => {
 
     const handleTaskify = async () => {
         if (!taskifyTarget) return;
-        // Validation: Only Dept is strictly required per user request (Fix 3), but user originally asked to relax validation in "Add" logic.
-        // For Taskify, user said "Fix 3: Schedule/Memo(Taskify)... required is only Dept".
         if (!taskifyData.deptId) {
             alert('部門は必須です');
             return;
@@ -145,7 +315,8 @@ export const MemoPage: React.FC = () => {
             order: count + 1,
             createdAt: now,
             updatedAt: now,
-            runCount: 0
+            runCount: 0,
+            isLocked: false
         });
 
         alert('スケジュールに追加しました');
@@ -154,7 +325,7 @@ export const MemoPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-20">
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold font-['Zen_Maru_Gothic'] text-slate-800 dark:text-slate-100">
                     メモ
@@ -168,56 +339,29 @@ export const MemoPage: React.FC = () => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {memos?.map((memo) => (
-                    <div key={memo.id} className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 hover:shadow-md transition-shadow relative group">
-                        {/* Action Buttons Row (Above Title) */}
-                        <div className="flex justify-end gap-1 mb-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => openTaskify(memo)} className="p-1.5 text-slate-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg" title="タスク化">
-                                <CheckSquare size={16} />
-                            </button>
-                            <button onClick={() => { setEditingMemo(memo); setIsModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-cyan-500 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg">
-                                <Edit2 size={16} />
-                            </button>
-                            <button onClick={() => handleMove(memo.id, 'up')} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
-                                <ArrowUp size={16} />
-                            </button>
-                            <button onClick={() => handleMove(memo.id, 'down')} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
-                                <ArrowDown size={16} />
-                            </button>
-                            <button onClick={() => handleDelete(memo.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
-                                <Trash2 size={16} />
-                            </button>
-                        </div>
-
-                        {/* Title (Full Width) */}
-                        <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100 mb-2 leading-relaxed">
-                            {memo.title || <span className="text-slate-400 italic">無題</span>}
-                        </h3>
-
-                        <p className="text-slate-600 dark:text-slate-400 text-sm whitespace-pre-wrap line-clamp-5 mb-4 min-h-[4rem]">
-                            {memo.body}
-                        </p>
-
-                        {(memo.targetDate || memo.dueDate) && (
-                            <div className="flex flex-wrap gap-2 text-xs pt-4 border-t border-slate-100 dark:border-slate-700/50">
-                                {memo.targetDate && (
-                                    <div className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-900/20 px-2 py-0.5 rounded-full">
-                                        <Calendar size={12} />
-                                        <span>対象: {memo.targetDate}</span>
-                                    </div>
-                                )}
-                                {memo.dueDate && (
-                                    <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full">
-                                        <Calendar size={12} />
-                                        <span>期限: {memo.dueDate}</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+            >
+                <SortableContext
+                    items={memos?.map(m => m.id) || []}
+                    strategy={rectSortingStrategy}
+                >
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {memos?.map((memo) => (
+                            <SortableMemoItem
+                                key={memo.id}
+                                memo={memo}
+                                onEdit={(m) => { setEditingMemo(m); setIsModalOpen(true); }}
+                                onDelete={handleDelete}
+                                onTaskify={openTaskify}
+                                onQuickEditSave={handleQuickEditSave}
+                            />
+                        ))}
                     </div>
-                ))}
-            </div>
+                </SortableContext>
+            </DndContext>
 
             {/* Edit Modal */}
             {isModalOpen && (
@@ -277,8 +421,8 @@ export const MemoPage: React.FC = () => {
 
             {/* Taskify Modal */}
             {isTaskifyModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
                         <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">
                             メモをスケジュールに追加
                         </h2>
@@ -322,7 +466,7 @@ export const MemoPage: React.FC = () => {
                                 <p>スケジュールカードのタイトルは、メモのタイトルまたは詳細作業が使われます。</p>
                             </div>
                         </div>
-                        <div className="flex justify-end gap-3 mt-8">
+                        <div className="flex justify-end gap-3 mt-8 pb-2">
                             <button onClick={() => setIsTaskifyModalOpen(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">キャンセル</button>
                             <button onClick={handleTaskify} className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-medium shadow-md hover:shadow-green-500/25 transition-all">追加する</button>
                         </div>
