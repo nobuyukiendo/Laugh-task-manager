@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, MemoCard } from '../db';
 import { v4 as uuidv4 } from 'uuid';
@@ -22,6 +22,22 @@ import {
     rectSortingStrategy
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+// --- Helper Hook for Auto-Resize Textarea ---
+const useAutoResizeTextArea = (value: string | undefined) => {
+    const ref = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+        const element = ref.current;
+        if (!element) return;
+
+        // Reset height to auto to get the correct scrollHeight for shrinking
+        element.style.height = 'auto';
+        element.style.height = `${element.scrollHeight}px`;
+    }, [value]);
+
+    return ref;
+};
 
 // --- Sortable Item Component with Quick Edit ---
 interface SortableMemoItemProps {
@@ -51,6 +67,7 @@ const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDel
 
     const [isQuickEditing, setIsQuickEditing] = useState(false);
     const [quickEditBody, setQuickEditBody] = useState(memo.body);
+    const quickEditRef = useAutoResizeTextArea(isQuickEditing ? quickEditBody : undefined);
 
     // Sync body when memo updates externally
     useEffect(() => {
@@ -109,9 +126,10 @@ const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDel
             {isQuickEditing ? (
                 <div className="flex-1 flex flex-col gap-2">
                     <textarea
+                        ref={quickEditRef}
                         value={quickEditBody}
                         onChange={(e) => setQuickEditBody(e.target.value)}
-                        className="w-full bg-indigo-50 dark:bg-slate-200 border border-indigo-200 dark:border-slate-600 rounded-lg p-2 text-sm text-slate-800 dark:text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none resize-none min-h-[5rem]"
+                        className="w-full bg-indigo-50 dark:bg-slate-200 border border-indigo-200 dark:border-slate-600 rounded-lg p-2 text-sm text-slate-800 dark:text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none resize-none overflow-hidden min-h-[5rem]"
                         autoFocus
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && e.ctrlKey) handleQuickSave();
@@ -130,7 +148,7 @@ const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDel
             ) : (
                 <div
                     onClick={() => setIsQuickEditing(true)} // Enable quick edit on click
-                    className="flex-1 text-slate-600 dark:text-slate-400 text-sm whitespace-pre-wrap line-clamp-5 min-h-[4rem] cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded p-1 -m-1 transition-colors"
+                    className="flex-1 text-slate-600 dark:text-slate-400 text-sm whitespace-pre-wrap min-h-[4rem] cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded p-1 -m-1 transition-colors"
                     title="クリックして簡易編集"
                 >
                     {memo.body || <span className="text-slate-300">メモの内容を入力...</span>}
@@ -172,6 +190,9 @@ export const MemoPage: React.FC = () => {
         targetDate: '',
         dueDate: ''
     });
+
+    // Auto-resize for Modal
+    const modalBodyRef = useAutoResizeTextArea(isModalOpen ? formData.body : undefined);
 
     // Taskify State
     const [isTaskifyModalOpen, setIsTaskifyModalOpen] = useState(false);
@@ -348,7 +369,7 @@ export const MemoPage: React.FC = () => {
                     items={memos?.map(m => m.id) || []}
                     strategy={rectSortingStrategy}
                 >
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {memos?.map((memo) => (
                             <SortableMemoItem
                                 key={memo.id}
@@ -366,7 +387,7 @@ export const MemoPage: React.FC = () => {
             {/* Edit Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg p-6 shadow-2xl">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl p-6 shadow-2xl">
                         <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">
                             {editingMemo ? 'メモを編集' : '新規メモ'}
                         </h2>
@@ -384,9 +405,10 @@ export const MemoPage: React.FC = () => {
                             <div>
                                 <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">本文</label>
                                 <textarea
+                                    ref={modalBodyRef}
                                     value={formData.body}
                                     onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-cyan-500/50 min-h-[120px]"
+                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-cyan-500/50 min-h-[150px] resize-none overflow-hidden"
                                     placeholder="メモの内容..."
                                 />
                             </div>
