@@ -158,43 +158,7 @@ export const TimelinePage: React.FC = () => {
             message += `\n失敗: ${failedCount}件 (赤枠の項目を確認してください)`;
         }
 
-        // --- Auto Backup Logic ---
-        // Only run if at least one operation attempted (connected valid)
-        // User rule: "Always overwrite on successful login".
-        // Trigger condition: "Google Calendar Transfer Execution".
-        if (settings.calendar.accessToken) {
-            try {
-                // 1. Export Data
-                const jsonData = await exportAllData();
-                const fileName = 'laugh-task-manager-data.json';
 
-                // 2. Find existing file
-                const existingFile = await googleDriveService.findFile(settings.calendar.accessToken, fileName);
-
-                // 3. Upload (Create or Update)
-                await googleDriveService.uploadFile(
-                    settings.calendar.accessToken,
-                    fileName,
-                    jsonData,
-                    existingFile?.id
-                );
-
-                // 4. Update local timestamp
-                await updateSettings({
-                    calendar: {
-                        ...settings.calendar,
-                        lastBackupAt: Date.now()
-                    }
-                });
-
-                message += `\n\n✅ Google Driveへのバックアップが完了しました`;
-            } catch (backupError: any) {
-                console.error("Auto Backup Failed", backupError);
-                message += `\n\n⚠️ Google Driveへのバックアップに失敗しました: ${backupError.message || '不明なエラー'}`;
-                message += `\n\n※ 権限不足の可能性があります。「設定」画面でGoogle連携を解除し、再接続してください。`;
-            }
-        }
-        // -------------------------
 
         alert(message);
     };
@@ -291,7 +255,36 @@ export const TimelinePage: React.FC = () => {
             const totalIssues = mismatchCount + warningCount + orphans.length;
 
             if (totalIssues === 0) {
-                alert("カレンダーとの整合性を確認しました。\n問題は見つかりませんでした。");
+                let message = "カレンダーとの整合性を確認しました。\n問題は見つかりませんでした。";
+
+                // --- Auto Backup Logic ---
+                if (settings.calendar.accessToken) {
+                    try {
+                        const jsonData = await exportAllData();
+                        const fileName = 'laugh-task-manager-data.json';
+                        const existingFile = await googleDriveService.findFile(settings.calendar.accessToken, fileName);
+                        await googleDriveService.uploadFile(
+                            settings.calendar.accessToken,
+                            fileName,
+                            jsonData,
+                            existingFile?.id
+                        );
+                        await updateSettings({
+                            calendar: {
+                                ...settings.calendar,
+                                lastBackupAt: Date.now()
+                            }
+                        });
+                        message += `\n\n✅ Google Driveへのバックアップが完了しました`;
+                    } catch (backupError: any) {
+                        console.error("Auto Backup Failed", backupError);
+                        message += `\n\n⚠️ Google Driveへのバックアップに失敗しました: ${backupError.message || '不明なエラー'}`;
+                        message += `\n\n※ 権限不足の可能性があります。「設定」画面でGoogle連携を解除し、再接続してください。`;
+                    }
+                }
+                // -------------------------
+
+                alert(message);
             } else {
                 alert(`確認完了: ${totalIssues}件の問題が見つかりました。\n(エラー: ${mismatchCount}件, 警告: ${warningCount}件, カレンダーのみ: ${orphans.length}件)\n画面の表示を確認してください。`);
             }
