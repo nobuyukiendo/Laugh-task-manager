@@ -324,9 +324,15 @@ const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: a
     }
 
     return (
-        <div className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 rounded-xl p-4 animate-in fade-in slide-in-from-bottom-2 group relative">
+        <div
+            onClick={() => setIsEditing(true)}
+            className="bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 rounded-xl p-4 animate-in fade-in slide-in-from-bottom-2 group relative cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
             <button
-                onClick={() => setIsEditing(true)}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditing(true);
+                }}
                 className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
                 title="時間を編集"
             >

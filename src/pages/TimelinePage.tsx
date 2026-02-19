@@ -624,19 +624,38 @@ export const TimelinePage: React.FC = () => {
                         <div key={log.id} id={`log-${log.id}`} className={`group relative pl-4 border-l-2 ${justAddedLogId === log.id ? 'border-pink-500 ring-2 ring-pink-500 ring-opacity-50 rounded-r-lg' : 'border-slate-700'} hover:border-cyan-500 transition-all duration-500`}>
                             <div className={`absolute -left-[5px] top-4 w-2 h-2 rounded-full ${justAddedLogId === log.id ? 'bg-pink-500 animate-ping' : 'bg-slate-700'} group-hover:bg-cyan-500 transition-colors`} />
 
-                            <Card className={`p-4 flex flex-col gap-2 ${justAddedLogId === log.id
-                                ? 'bg-pink-50 dark:bg-pink-900/20'
-                                : hasError
-                                    ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-400 dark:border-rose-600'
-                                    : 'bg-white dark:bg-slate-900'
-                                } data-[dark]:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm dark:shadow-none border border-slate-200 dark:border-slate-800`}>
+                            <Card
+                                onClick={() => setEditingLog(log)}
+                                className={`p-4 flex flex-col gap-2 cursor-pointer ${justAddedLogId === log.id
+                                    ? 'bg-pink-50 dark:bg-pink-900/20'
+                                    : hasError
+                                        ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-400 dark:border-rose-600'
+                                        : 'bg-white dark:bg-slate-900'
+                                    } data-[dark]:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm dark:shadow-none border border-slate-200 dark:border-slate-800`}
+                            >
                                 <div className="flex justify-between items-start">
                                     <div className="text-xs font-mono text-slate-400">
                                         {startStr} - {endStr} <span className="text-slate-500">({durationMin}min)</span>
                                     </div>
                                     <div className="flex bg-slate-900/50 rounded-md p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button className="p-1 text-slate-300 hover:text-cyan-400" onClick={() => setEditingLog(log)}><Edit2 size={14} /></button>
-                                        <button className="p-1 text-slate-300 hover:text-rose-400" onClick={() => handleDelete(log.id)}><Trash2 size={14} /></button>
+                                        <button
+                                            className="p-1 text-slate-300 hover:text-cyan-400"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingLog(log);
+                                            }}
+                                        >
+                                            <Edit2 size={14} />
+                                        </button>
+                                        <button
+                                            className="p-1 text-slate-300 hover:text-rose-400"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete(log.id);
+                                            }}
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 </div>
 
@@ -687,7 +706,10 @@ export const TimelinePage: React.FC = () => {
                                         size="sm"
                                         variant="ghost"
                                         className={log.calendar?.synced ? "text-green-500 hover:text-green-600" : "text-slate-400 hover:text-cyan-500"}
-                                        onClick={() => handleSingleSync(log)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleSingleSync(log);
+                                        }}
                                         disabled={!settings?.calendar.connected}
                                         title={!settings?.calendar.connected ? "カレンダー未連携" : (log.calendar?.synced ? "再同期 (上書き)" : "カレンダーへ転記")}
                                     >
