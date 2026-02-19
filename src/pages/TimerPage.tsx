@@ -381,27 +381,31 @@ interface TextGeneratorPanelProps {
 
 const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, workTypes, partners, locations, onApply }) => {
     const [isVisible, setIsVisible] = useState(false);
-    const [action, setAction] = useState<'send' | 'check'>('send');
+    const [action, setAction] = useState<'send' | 'check' | 'mtg'>('send');
     const [selectedPartnerIds, setSelectedPartnerIds] = useState<string[]>([]);
     const [locationId, setLocationId] = useState('');
     const [content, setContent] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const targetWorkType = workTypes.find(w => w.id === workTypeId);
-    const isTarget = targetWorkType && (targetWorkType.name.includes('社内メッセージ') || targetWorkType.name.includes('社内メッセージ確認'));
+    const isMessage = targetWorkType && (targetWorkType.name.includes('社内メッセージ') || targetWorkType.name.includes('社内メッセージ確認'));
+    const isMtg = targetWorkType && targetWorkType.name.includes('社内MTG');
 
     React.useEffect(() => {
-        if (isTarget) {
+        if (isMessage) {
             setIsVisible(true);
             if (targetWorkType.name.includes('確認')) {
                 setAction('check');
             } else {
                 setAction('send');
             }
+        } else if (isMtg) {
+            setIsVisible(true);
+            setAction('mtg');
         } else {
             setIsVisible(false);
         }
-    }, [workTypeId, isTarget, targetWorkType]);
+    }, [workTypeId, isMessage, isMtg, targetWorkType]);
 
     if (!isVisible) return null;
 
@@ -418,11 +422,43 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
 
     const partnerNames = getPartnerNames();
 
-    const generatedText = action === 'send'
-        ? `${locationPrefix}${partnerNames}に${content}についてのメッセージ送信`
-        : `${locationPrefix}${partnerNames}の${content}についてのメッセージ確認`;
+    let generatedText = '';
+    let isValid = false;
 
-    const isValid = selectedPartnerIds.length > 0 && content.trim().length > 0;
+    if (action === 'mtg') {
+        // MTG Template: {Location}で、{Partner}と、{Content}についてMTG
+        // Parts are optional
+        const parts = [];
+        if (locationName) parts.push(`${locationName}で`);
+        if (partnerNames) parts.push(`${partnerNames}と`);
+        if (content) parts.push(`${content}について`);
+
+        generatedText = `${parts.join('、')}MTG`;
+        // Remove leading/trailing comma if any weirdness, but join handles it.
+        // Actually, if parts is empty -> "MTG". The user requested strict template.
+        // "{Location}で、{Partner}と、{Content}についてMTG"
+        // Let's stick closer to the REQUESTED format but handle missing parts gracefully or strictly?
+        // User said: "・{場所}、{相手}は未入力でも使用可能とする" (Location and Partner can be empty)
+        // User said: "・未入力項目がある場合でも、エラーとせず保存できること" (Can save even with empty items)
+
+        // Re-constructing with exact requested separators if the item exists
+        let text = '';
+        if (locationName) text += `${locationName}で、`;
+        if (partnerNames) text += `${partnerNames}と、`;
+        if (content) text += `${content}について`;
+        text += 'MTG';
+
+        generatedText = text;
+        isValid = true; // Always valid for MTG as per requirements
+
+    } else {
+        // Message Modes
+        generatedText = action === 'send'
+            ? `${locationPrefix}${partnerNames}に${content}についてのメッセージ送信`
+            : `${locationPrefix}${partnerNames}の${content}についてのメッセージ確認`;
+
+        isValid = selectedPartnerIds.length > 0 && content.trim().length > 0;
+    }
 
     const togglePartner = (id: string) => {
         setSelectedPartnerIds(prev =>
@@ -438,21 +474,36 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
             </h3>
 
             <div className="space-y-4">
-                {/* Action Selector */}
+                {/* Action Selector (Visible if Message Type, or maybe just hidden if MTG specific?) */}
+                {/* User didn't say to hide it, but if auto-selected, maybe show state? */}
+                {/* Let's show buttons to allow toggling if they want manually? No, it's driven by work type. */}
+                {/* But the UI showed buttons. Let's keep them read-only or selectable if applicable. */}
+                {/* Actually for MTG, it switches to MTG mode. Send/Check are for Message. */}
+
                 <div className="flex items-center gap-2">
                     <div className="flex flex-1 bg-white dark:bg-slate-800 p-1 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
-                        <button
-                            onClick={() => setAction('send')}
-                            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'send' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                        >
-                            送信（〜に）
-                        </button>
-                        <button
-                            onClick={() => setAction('check')}
-                            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'check' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                        >
-                            確認（〜の）
-                        </button>
+                        {action === 'mtg' ? (
+                            <button
+                                className="flex-1 py-1.5 text-xs font-bold rounded-md transition-all bg-pink-500 text-white shadow-sm pointer-events-none"
+                            >
+                                社内MTG
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    onClick={() => setAction('send')}
+                                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'send' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                                >
+                                    送信（〜に）
+                                </button>
+                                <button
+                                    onClick={() => setAction('check')}
+                                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${action === 'check' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                                >
+                                    確認（〜の）
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -513,7 +564,7 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
                         </div>
                     </div>
                     <Input
-                        placeholder="例：日程調整／見積もり"
+                        placeholder={action === 'mtg' ? "例：今後の進め方" : "例：日程調整／見積もり"}
                         value={content}
                         onChange={e => setContent(e.target.value)}
                         className="text-sm py-2 col-span-2"
@@ -527,7 +578,7 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
                 <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-indigo-100 dark:border-indigo-800/50">
                     <div className="text-[10px] text-slate-400 mb-1">プレビュー</div>
                     <div className="text-sm font-medium text-slate-700 dark:text-slate-200 min-h-[1.25rem]">
-                        {(selectedPartnerIds.length > 0) || content ? generatedText : <span className="text-slate-300">入力するとここにプレビューが表示されます</span>}
+                        {(selectedPartnerIds.length > 0) || content || (action === 'mtg') ? generatedText : <span className="text-slate-300">入力するとここにプレビューが表示されます</span>}
                     </div>
                 </div>
 
