@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { MasterProvider } from './contexts/MasterContext';
 import { TimerProvider } from './contexts/TimerContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { Layout } from './components/Layout';
 import { db } from './db';
 import { v4 as uuidv4 } from 'uuid';
@@ -55,9 +56,6 @@ function App() {
         initializeMasters();
     }, []);
     return (
-import { ThemeProvider } from './contexts/ThemeContext';
-
-    return (
         <SettingsProvider>
             <ThemeProvider>
                 <MasterProvider>
@@ -84,6 +82,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
                         </HashRouter>
                     </TimerProvider>
                 </MasterProvider>
+            </ThemeProvider>
         </SettingsProvider>
     );
 }
