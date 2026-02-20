@@ -12,19 +12,25 @@
 :root {
   /* Default Theme (Light) */
   /* These are the raw colors that picking a theme will update */
-  --color-primary-base: #06b6d4;  /* cyan-500 */
-  --color-accent-base: #ec4899;   /* pink-500 */
-  --color-base-base: #64748b;     /* slate-500 */
-  
+  --color-primary-base: #06b6d4;
+  /* cyan-500 */
+  --color-accent-base: #ec4899;
+  /* pink-500 */
+  --color-base-base: #64748b;
+  /* slate-500 */
+
   /* Backgrounds */
-  --color-bg-base: #f8fafc;       /* slate-50 */
-  --color-surface-base: #ffffff;  /* white */
-  --color-text-base: #0f172a;     /* slate-900 */
+  --color-bg-base: #f8fafc;
+  /* slate-50 */
+  --color-surface-base: #ffffff;
+  /* white */
+  --color-text-base: #0f172a;
+  /* slate-900 */
 
   /* --- Generated Palettes (Dynamic) --- */
-  
+
   /* Primary Scale (Replaces Cyan) */
-  --theme-primary-50:  color-mix(in srgb, var(--color-primary-base), white 95%);
+  --theme-primary-50: color-mix(in srgb, var(--color-primary-base), white 95%);
   --theme-primary-100: color-mix(in srgb, var(--color-primary-base), white 90%);
   --theme-primary-200: color-mix(in srgb, var(--color-primary-base), white 80%);
   --theme-primary-300: color-mix(in srgb, var(--color-primary-base), white 60%);
@@ -37,7 +43,7 @@
   --theme-primary-950: color-mix(in srgb, var(--color-primary-base), black 85%);
 
   /* Accent Scale (Replaces Pink) */
-  --theme-accent-50:  color-mix(in srgb, var(--color-accent-base), white 95%);
+  --theme-accent-50: color-mix(in srgb, var(--color-accent-base), white 95%);
   --theme-accent-100: color-mix(in srgb, var(--color-accent-base), white 90%);
   --theme-accent-200: color-mix(in srgb, var(--color-accent-base), white 80%);
   --theme-accent-300: color-mix(in srgb, var(--color-accent-base), white 60%);
@@ -52,7 +58,7 @@
   /* Base/Neutral Scale (Replaces Slate) */
   /* Note: Neutrals are tricky because they need to be greyscale-ish. 
      We will mix the base color with itself but simpler logic for now. */
-  --theme-base-50:  color-mix(in srgb, var(--color-base-base), white 95%);
+  --theme-base-50: color-mix(in srgb, var(--color-base-base), white 95%);
   --theme-base-100: color-mix(in srgb, var(--color-base-base), white 90%);
   --theme-base-200: color-mix(in srgb, var(--color-base-base), white 80%);
   --theme-base-300: color-mix(in srgb, var(--color-base-base), white 60%);
@@ -67,27 +73,13 @@
   /* Legacy Compatibility & specific overrides */
   --bg-primary: var(--color-bg-base);
   --text-primary: var(--color-text-base);
-  --card-bg: color-mix(in srgb, var(--color-surface-base), transparent 20%); /* 0.8 opacity */
+  --card-bg: color-mix(in srgb, var(--color-surface-base), transparent 20%);
+  /* 0.8 opacity */
   --border-color: var(--theme-base-300);
 }
 
-/* Dark Mode Override */
-.dark {
-  /* Preset Dark Values */
-  --color-primary-base: #22d3ee;  /* cyan-400 (brighter for dark mode) */
-  --color-accent-base: #f472b6;   /* pink-400 */
-  --color-base-base: #94a3b8;     /* slate-400 */
-
-  --color-bg-base: #0f172a;       /* slate-900 */
-  --color-surface-base: #1e293b;  /* slate-800 */
-  --color-text-base: #f8fafc;     /* slate-50 */
-
-  /* Legacy overrides for Dark */
-  --bg-primary: var(--color-bg-base);
-  --text-primary: var(--color-text-base);
-  --card-bg: color-mix(in srgb, var(--color-surface-base), transparent 40%); /* 0.6 opacity */
-  --border-color: var(--theme-base-700);
-}
+/* Dark Mode Override - Variables are now managed by ThemeContext inline styles.
+   The .dark class is used ONLY for Tailwind dark: utility class activation. */
 
 body {
   margin: 0;

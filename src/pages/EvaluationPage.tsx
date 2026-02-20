@@ -6,7 +6,7 @@ import { WeeklyReportPanel } from '../components/evaluation/WeeklyReportPanel';
 import { handleAuthReturn } from '../lib/trello-auth';
 
 export const EvaluationPage: React.FC = () => {
-    const { theme } = useTheme();
+    const { activeThemeId } = useTheme();
     const [authError, setAuthError] = useState<string | null>(null);
 
     // 初期化：認証後のtoken処理
@@ -22,7 +22,7 @@ export const EvaluationPage: React.FC = () => {
     }, []);
 
     return (
-        <div className={`min-h-screen ${theme === 'dark' ? 'dark bg-slate-950' : 'bg-slate-50'}`}>
+        <div className={`min-h-screen ${activeThemeId === 'dark' ? 'dark bg-slate-950' : 'bg-slate-50'}`}>
             {/* ヘッダー */}
             <header className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
                 <div className="max-w-[1920px] mx-auto px-4 py-4 flex items-center gap-4">

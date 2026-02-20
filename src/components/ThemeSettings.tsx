@@ -1,7 +1,6 @@
-
-import React, { useEffect, useState } from 'react';
-import { useTheme, ThemeType, ThemeRoleColors } from '../contexts/ThemeContext';
-import { Palette, Check, Pipette, Save, X, RotateCcw } from 'lucide-react';
+import React from 'react';
+import { useTheme, ThemeType } from '../contexts/ThemeContext';
+import { Palette, Check } from 'lucide-react';
 
 export const ThemeSettings: React.FC = () => {
     const {
@@ -9,48 +8,14 @@ export const ThemeSettings: React.FC = () => {
         setTheme,
         isEditing,
         startEditing,
-        saveEditing,
         cancelEditing,
-        editingColors,
-        updateEditingColor,
-        isEyeDropperActive,
-        setEyeDropperActive,
-        getCurrentColors
     } = useTheme();
-
-    // Listen to Eye Dropper auto-focus event
-    useEffect(() => {
-        const handleRoleSelect = (e: CustomEvent<{ role: keyof ThemeRoleColors }>) => {
-            // Highlight the picked role (UI feedback is handled by React state if we set focus or scroll to it)
-            // For now, we just ensure it's visible or maybe flash it? 
-            // The simple UI below is small enough.
-            console.log('Selected role via dropper:', e.detail.role);
-            // We could set a "focusedRole" state to highlight the picker.
-            setFocusedRole(e.detail.role);
-            setTimeout(() => setFocusedRole(null), 2000);
-        };
-        window.addEventListener('theme-role-selected' as any, handleRoleSelect as any);
-        return () => window.removeEventListener('theme-role-selected' as any, handleRoleSelect as any);
-    }, []);
-
-    const [focusedRole, setFocusedRole] = useState<keyof ThemeRoleColors | null>(null);
 
     const themes: { id: ThemeType; label: string; color: string }[] = [
         { id: 'light', label: 'ライト', color: '#f8fafc' },
         { id: 'dark', label: 'ダーク', color: '#0f172a' },
         { id: 'custom1', label: 'カスタム', color: 'linear-gradient(135deg, #06b6d4, #ec4899)' },
     ];
-
-    const roleLabels: Record<keyof ThemeRoleColors, string> = {
-        primary: 'メインカラー (Cyan代用)',
-        accent: 'アクセント (Pink代用)',
-        base: 'ベースカラー (Slate代用)',
-        bg: '背景色',
-        surface: 'カード・サイドバー',
-        text: '文字色'
-    };
-
-    const currentColors = getCurrentColors();
 
     return (
         <div className="space-y-6">
@@ -88,7 +53,7 @@ export const ThemeSettings: React.FC = () => {
 
             {/* Edit Panel (Only for Custom) */}
             {activeThemeId.startsWith('custom') && (
-                <div className="animate-in fade-in slide-in-from-top-4 duration-300 mt-4">
+                <div className="mt-4">
                     {!isEditing ? (
                         <button
                             onClick={startEditing}

@@ -97,7 +97,7 @@ const formatDuration = (sec: number) => {
 export const DashboardPage: React.FC = () => {
     // const { settings } = useSettings();
     const { departments, workTypes, detailTasks } = useMaster();
-    const { theme } = useTheme();
+    const { activeThemeId } = useTheme();
 
     // Period State
     const [period, setPeriod] = useState<'day' | 'week' | 'month'>(() => {
@@ -462,7 +462,7 @@ export const DashboardPage: React.FC = () => {
         });
 
         const datasets: any[] = [];
-        const themeBorderColor = theme === 'dark' ? '#0f172a' : '#fff';
+        const themeBorderColor = activeThemeId === 'dark' ? '#0f172a' : '#fff';
 
         if (zoomLevel === 'all') {
             const sortedDepts = Object.values(tree).sort((a, b) => b.sec - a.sec);
@@ -559,7 +559,7 @@ export const DashboardPage: React.FC = () => {
             }
         });
 
-    }, [logs, departments, workTypes, detailTasks, theme, zoomLevel, zoomDeptId, zoomWtId]);
+    }, [logs, departments, workTypes, detailTasks, activeThemeId, zoomLevel, zoomDeptId, zoomWtId]);
 
     // Chart Data
     const deptData = stats?.chartData || null;
@@ -722,7 +722,7 @@ export const DashboardPage: React.FC = () => {
                                             display: zoomLevel === 'all',
                                             position: 'bottom',
                                             labels: {
-                                                color: theme === 'dark' ? '#94a3b8' : '#475569',
+                                                color: activeThemeId === 'dark' ? '#94a3b8' : '#475569',
                                                 font: { size: 10, family: 'Inter' },
                                                 boxWidth: 8,
                                                 padding: 10
@@ -732,8 +732,8 @@ export const DashboardPage: React.FC = () => {
                                             display: true,
                                             text: (stats.totalSec / 3600).toFixed(1),
                                             subtext: 'hours',
-                                            color: theme === 'dark' ? '#e2e8f0' : '#1e293b',
-                                            subtextColor: theme === 'dark' ? '#94a3b8' : '#64748b'
+                                            color: activeThemeId === 'dark' ? '#e2e8f0' : '#1e293b',
+                                            subtextColor: activeThemeId === 'dark' ? '#94a3b8' : '#64748b'
                                         },
                                         tooltip: {
                                             callbacks: {
