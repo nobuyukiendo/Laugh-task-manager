@@ -28,8 +28,8 @@ export const TimelinePage: React.FC = () => {
     // Date Navigation
     const [viewDate, setViewDate] = useState(new Date());
     const { syncLog, fetchEventsForImport } = useGoogleCalendar();
-    const { theme } = useTheme();
-    const isDark = theme === 'dark';
+    const { activeThemeId } = useTheme();
+    const isDark = activeThemeId === 'dark';
 
     const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
     const [showManualEntry, setShowManualEntry] = useState(false);
