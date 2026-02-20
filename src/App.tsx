@@ -55,31 +55,35 @@ function App() {
         initializeMasters();
     }, []);
     return (
-        <SettingsProvider>
-            <MasterProvider>
-                <TimerProvider>
-                    <HashRouter>
-                        <Routes>
-                            {/* 全画面ページ（Layout外） */}
-                            <Route path="/evaluation" element={<EvaluationPage />} />
+import { ThemeProvider } from './contexts/ThemeContext';
 
-                            {/* 通常ページ（Layout内） */}
-                            <Route path="/" element={<Layout />}>
-                                <Route index element={<TimerPage />} />
-                                <Route path="memo" element={<MemoPage />} />
-                                <Route path="schedule" element={<SchedulePage />} />
-                                <Route path="timeline" element={<TimelinePage />} />
-                                <Route path="dashboard" element={<DashboardPage />} />
-                                <Route path="search" element={<SearchPage />} />
-                                <Route path="settings" element={<SettingsPage />} />
-                                <Route path="master" element={<MasterPage />} />
-                                <Route path="links" element={<LinksPage />} />
-                                <Route path="help" element={<HelpPage />} />
-                            </Route>
-                        </Routes>
-                    </HashRouter>
-                </TimerProvider>
-            </MasterProvider>
+    return (
+        <SettingsProvider>
+            <ThemeProvider>
+                <MasterProvider>
+                    <TimerProvider>
+                        <HashRouter>
+                            <Routes>
+                                {/* 全画面ページ（Layout外） */}
+                                <Route path="/evaluation" element={<EvaluationPage />} />
+
+                                {/* 通常ページ（Layout内） */}
+                                <Route path="/" element={<Layout />}>
+                                    <Route index element={<TimerPage />} />
+                                    <Route path="memo" element={<MemoPage />} />
+                                    <Route path="schedule" element={<SchedulePage />} />
+                                    <Route path="timeline" element={<TimelinePage />} />
+                                    <Route path="dashboard" element={<DashboardPage />} />
+                                    <Route path="search" element={<SearchPage />} />
+                                    <Route path="settings" element={<SettingsPage />} />
+                                    <Route path="master" element={<MasterPage />} />
+                                    <Route path="links" element={<LinksPage />} />
+                                    <Route path="help" element={<HelpPage />} />
+                                </Route>
+                            </Routes>
+                        </HashRouter>
+                    </TimerProvider>
+                </MasterProvider>
         </SettingsProvider>
     );
 }

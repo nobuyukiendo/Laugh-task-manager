@@ -7,6 +7,8 @@ import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { googleDriveService } from '../services/googleDriveService';
 import { importAllData } from '../utils/dbExportImport';
 
+import { ThemeSettings } from '../components/ThemeSettings';
+
 export const SettingsPage: React.FC = () => {
     const { settings, updateSettings, isLoading } = useSettings();
     const navigate = useNavigate();
@@ -30,13 +32,18 @@ export const SettingsPage: React.FC = () => {
     if (isLoading || !settings) return <div className="p-8 text-center text-slate-500">Loading settings...</div>;
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <SettingsIcon className="text-cyan-500 dark:text-cyan-400" />
                     設定
                 </h1>
             </div>
+
+            {/* Theme Settings */}
+            <Card>
+                <ThemeSettings />
+            </Card>
 
             {/* General Settings */}
             <Card>
