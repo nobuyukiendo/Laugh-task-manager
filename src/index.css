@@ -3,9 +3,14 @@
 /* Tailwind v4 import */
 @import "tailwindcss";
 
+/* CRITICAL: Load tailwind.config.js (v4 does NOT auto-load it) */
+@config "../tailwind.config.js";
+
+/* CRITICAL: Enable class-based dark mode (v4 defaults to prefers-color-scheme) */
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
-  /* This is where we might put overrides if using pure v4 config, 
-     but we are using tailwind.config.js for variable mapping simplicity */
+  /* Color variables are mapped in tailwind.config.js */
 }
 
 /* --- Theme System --- */
