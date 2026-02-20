@@ -1,8 +1,57 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ExternalLink, Plus, Trash2, Smile, ChevronDown, ChevronUp, Settings2, AlertTriangle, Check, Pencil, X } from 'lucide-react';
+import { ExternalLink, Plus, Trash2, Smile, Settings2, AlertTriangle, Check, Pencil, X, GripVertical } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { v4 as uuidv4 } from 'uuid';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    rectSortingStrategy,
+    useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// --- Sortable Item Wrapper ---
+const SortableLinkItem = ({ id, children }: {
+    id: string,
+    children: (args: { isDragging: boolean, dragHandleProps: any }) => React.ReactNode
+}) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 50 : 'auto',
+        opacity: isDragging ? 0.8 : 1,
+        position: 'relative' as const
+    };
+
+    return (
+        <div ref={setNodeRef} style={style}>
+            {children({
+                isDragging,
+                dragHandleProps: { ...attributes, ...listeners }
+            })}
+        </div>
+    );
+};
 
 export const LinksPage: React.FC = () => {
     const [name, setName] = useState('');
@@ -28,6 +77,18 @@ export const LinksPage: React.FC = () => {
     useEffect(() => {
         localStorage.setItem('links_form_expanded', String(isFormExpanded));
     }, [isFormExpanded]);
+
+    // DnD Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // 8px移動したらドラッグとみなす（クリックとの誤動作防止）
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     // フォームをクリア
     const clearForm = () => {
@@ -110,18 +171,27 @@ export const LinksPage: React.FC = () => {
         await db.linkIcons.delete(id);
     };
 
-    // 順番入れ替え
-    const moveLink = async (id: string, currentOrder: number, direction: 'up' | 'down') => {
+    // Drag End Handler
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
         if (!links) return;
-        const index = links.findIndex(l => l.id === id);
-        if (direction === 'up' && index > 0) {
-            const target = links[index - 1];
-            await db.links.update(id, { order: target.order });
-            await db.links.update(target.id, { order: currentOrder });
-        } else if (direction === 'down' && index < links.length - 1) {
-            const target = links[index + 1];
-            await db.links.update(id, { order: target.order });
-            await db.links.update(target.id, { order: currentOrder });
+
+        if (over && active.id !== over.id) {
+            const oldIndex = links.findIndex(l => l.id === active.id);
+            const newIndex = links.findIndex(l => l.id === over.id);
+
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const newLinks = arrayMove(links, oldIndex, newIndex);
+
+                // Update orders in DB
+                const updates = newLinks.map((l, i) => ({ id: l.id, order: i + 1 }));
+
+                await db.transaction('rw', db.links, async () => {
+                    for (const update of updates) {
+                        await db.links.update(update.id, { order: update.order });
+                    }
+                });
+            }
         }
     };
 
@@ -159,7 +229,7 @@ export const LinksPage: React.FC = () => {
                             </span>
                         )}
                     </div>
-                    {isFormExpanded ? <ChevronUp size={24} className="text-slate-400" /> : <ChevronDown size={24} className="text-slate-400" />}
+                    {/* Chevron icon removed as it suggests simple accordion, but header is clickable enough */}
                 </button>
 
                 {isFormExpanded && (
@@ -291,89 +361,107 @@ export const LinksPage: React.FC = () => {
                 </div>
 
                 {links && links.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {links.map((link, index) => (
-                            <div
-                                key={link.id}
-                                className={`group relative flex flex-col bg-white dark:bg-slate-800 border rounded-[2.5rem] shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden ${editingId === link.id ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-200 dark:border-slate-700'}`}
-                            >
-                                {/* メインリンクエリア */}
-                                <a
-                                    href={link.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-6 p-7 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
-                                >
-                                    <div className="flex-shrink-0 w-20 h-20 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-[1.5rem] text-5xl shadow-inner border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-transform">
-                                        {link.icon || '🔗'}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-xl font-black text-slate-900 dark:text-white truncate mb-1 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
-                                            {link.name}
-                                        </div>
-                                        <div className="text-xs font-mono text-slate-400 dark:text-slate-500 truncate opacity-70">
-                                            {link.url}
-                                        </div>
-                                    </div>
-                                </a>
-
-                                {/* コントロールバー */}
-                                <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => moveLink(link.id, link.order, 'up')}
-                                            disabled={index === 0}
-                                            className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 hover:text-cyan-500 disabled:opacity-30 transition-colors shadow-sm"
-                                        >
-                                            <ChevronUp size={20} />
-                                        </button>
-                                        <button
-                                            onClick={() => moveLink(link.id, link.order, 'down')}
-                                            disabled={index === links.length - 1}
-                                            className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 hover:text-cyan-500 disabled:opacity-30 transition-colors shadow-sm"
-                                        >
-                                            <ChevronDown size={20} />
-                                        </button>
-                                    </div>
-
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() => startEdit(link)}
-                                            className={`p-3 transition-all hover:scale-110 active:scale-95 ${editingId === link.id ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600 hover:text-cyan-500'}`}
-                                            title="編集"
-                                        >
-                                            <Pencil size={22} />
-                                        </button>
-
-                                        {confirmingId === link.id ? (
-                                            <div className="flex items-center gap-2 animate-in slide-in-from-right-2">
-                                                <button
-                                                    onClick={() => executeDelete(link.id)}
-                                                    className="px-4 py-2 bg-red-500 text-white text-xs font-black rounded-xl shadow-lg shadow-red-500/20 flex items-center gap-1 hover:bg-red-600 transition-colors"
-                                                >
-                                                    <Check size={14} /> はい
-                                                </button>
-                                                <button
-                                                    onClick={() => setConfirmingId(null)}
-                                                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-                                                >
-                                                    いいえ
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => setConfirmingId(link.id)}
-                                                className="p-3 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-500 transition-all hover:scale-110 active:scale-95"
-                                                title="削除"
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <SortableContext
+                            items={links.map(l => l.id)}
+                            strategy={rectSortingStrategy}
+                        >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {links.map((link) => (
+                                    <SortableLinkItem key={link.id} id={link.id}>
+                                        {({ isDragging, dragHandleProps }) => (
+                                            <div
+                                                className={`group relative flex flex-col bg-white dark:bg-slate-800 border rounded-[2.5rem] shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden 
+                                                    ${editingId === link.id ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-200 dark:border-slate-700'}
+                                                    ${isDragging ? 'shadow-2xl scale-105 z-50 ring-2 ring-cyan-500 opacity-90' : ''}
+                                                `}
                                             >
-                                                <Trash2 size={22} />
-                                            </button>
+                                                {/* メインリンクエリア */}
+                                                <a
+                                                    href={link.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-6 p-7 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                                                    // Prevent drag on content click
+                                                    onPointerDown={(e) => e.stopPropagation()}
+                                                >
+                                                    <div className="flex-shrink-0 w-20 h-20 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-[1.5rem] text-5xl shadow-inner border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-transform">
+                                                        {link.icon || '🔗'}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-xl font-black text-slate-900 dark:text-white truncate mb-1 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+                                                            {link.name}
+                                                        </div>
+                                                        <div className="text-xs font-mono text-slate-400 dark:text-slate-500 truncate opacity-70">
+                                                            {link.url}
+                                                        </div>
+                                                    </div>
+                                                </a>
+
+                                                {/* コントロールバー */}
+                                                <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-900/30 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                                                    <div className="flex gap-2">
+                                                        {/* Drag Handle */}
+                                                        <div
+                                                            className="p-2 cursor-grab text-slate-300 hover:text-slate-500 dark:hover:text-slate-400 active:cursor-grabbing"
+                                                            {...dragHandleProps}
+                                                        >
+                                                            <GripVertical size={24} />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => startEdit(link)}
+                                                            className={`p-3 transition-all hover:scale-110 active:scale-95 ${editingId === link.id ? 'text-amber-500' : 'text-slate-300 dark:text-slate-600 hover:text-cyan-500'}`}
+                                                            title="編集"
+                                                            // Stop propagation to allow clicking without dragging interference
+                                                            onPointerDown={(e) => e.stopPropagation()}
+                                                        >
+                                                            <Pencil size={22} />
+                                                        </button>
+
+                                                        {confirmingId === link.id ? (
+                                                            <div
+                                                                className="flex items-center gap-2 animate-in slide-in-from-right-2"
+                                                                onPointerDown={(e) => e.stopPropagation()}
+                                                            >
+                                                                <button
+                                                                    onClick={() => executeDelete(link.id)}
+                                                                    className="px-4 py-2 bg-red-500 text-white text-xs font-black rounded-xl shadow-lg shadow-red-500/20 flex items-center gap-1 hover:bg-red-600 transition-colors"
+                                                                >
+                                                                    <Check size={14} /> はい
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setConfirmingId(null)}
+                                                                    className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+                                                                >
+                                                                    いいえ
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => setConfirmingId(link.id)}
+                                                                className="p-3 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-500 transition-all hover:scale-110 active:scale-95"
+                                                                title="削除"
+                                                                onPointerDown={(e) => e.stopPropagation()}
+                                                            >
+                                                                <Trash2 size={22} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
                                         )}
-                                    </div>
-                                </div>
+                                    </SortableLinkItem>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </SortableContext>
+                    </DndContext>
                 ) : (
                     <div className="text-center py-32 bg-slate-50/50 dark:bg-slate-800/10 rounded-[3rem] border-4 border-dashed border-slate-200 dark:border-slate-800 transition-all">
                         <Smile size={100} className="mx-auto text-slate-200 dark:text-slate-800 mb-8" />
