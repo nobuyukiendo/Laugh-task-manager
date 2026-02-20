@@ -55,7 +55,21 @@ export default {
                     500: 'var(--theme-primary-500)',
                     600: 'var(--theme-primary-600)',
                     900: 'var(--theme-primary-900)',
-                }
+                },
+                // Semantic Colors (Controlled by ThemeContext)
+                background: 'var(--color-bg-base)',
+                surface: 'var(--color-surface-base)',
+                'main-text': 'var(--color-text-base)',
+                'sub-text': 'var(--color-text-sub)',
+                border: 'var(--color-border-base)',
+                'input-bg': 'var(--color-input-bg)',
+                'input-text': 'var(--color-input-text)',
+                'button-bg': 'var(--color-button-bg)',
+                'button-text': 'var(--color-button-text)',
+                icon: 'var(--color-icon-base)',
+                'badge-dept': 'var(--color-badge-dept)',
+                'badge-work-type': 'var(--color-badge-work-type)',
+                'badge-detail': 'var(--color-badge-detail)',
             },
             fontFamily: {
                 sans: ['Inter', 'sans-serif'],

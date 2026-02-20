@@ -198,8 +198,8 @@ export const LinksPage: React.FC = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-20">
             <div>
-                <h1 className="text-3xl font-black font-['Zen_Maru_Gothic'] flex items-center gap-3 text-slate-900 dark:text-white">
-                    <ExternalLink className="text-cyan-500" size={32} />
+                <h1 className="text-3xl font-black font-['Zen_Maru_Gothic'] flex items-center gap-3 text-main-text" data-theme-role="text">
+                    <ExternalLink className="text-icon" size={32} data-theme-role="icon" />
                     リンク管理
                 </h1>
                 <p className="text-slate-600 dark:text-slate-400 mt-2 font-medium">

@@ -2,15 +2,25 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 
 // Define the colors managed by the theme
 export interface ThemeRoleColors {
-    primary: string; // Base for Cyan replacement
-    accent: string;  // Base for Pink replacement
-    base: string;    // Base for Slate replacement
-    bg: string;      // Background
-    surface: string; // Cards/Surfaces
-    text: string;    // Text
+    primary: string;    // Brand/Action (Cyan)
+    accent: string;     // Highlight (Pink)
+    bg: string;         // App Background
+    surface: string;    // Card/Sidebar Background
+    text: string;       // Main Text
+    subText: string;    // Secondary Text (Label/Date)
+    border: string;     // Borders/Dividers
+    inputBg: string;    // Input Field Background
+    inputText: string;  // Input Field Text
+    buttonBg: string;   // Secondary Button Background
+    buttonText: string; // Secondary Button Text
+    icon: string;       // Default Icon Color
+    badgeDept: string;    // Department Badge in History
+    badgeWorkType: string; // Work Type Badge in History
+    badgeDetail: string;   // Detailed Task Badge in History
+    base: string;       // Legacy Base (Slate) - Keeps strictly for unmigrated gray scales if any
 }
 
-export type ThemeType = 'light' | 'dark' | 'custom1' | 'custom2';
+export type ThemeType = 'light' | 'dark' | 'custom';
 
 interface ThemeContextType {
     activeThemeId: ThemeType;
@@ -35,28 +45,27 @@ interface ThemeContextType {
 
     // Helper to get formatted value for UI
     getCurrentColors: () => ThemeRoleColors;
+    isDark: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// Default presets
-const PRESET_LIGHT: ThemeRoleColors = {
-    primary: '#06b6d4', // cyan-500
-    accent: '#ec4899',  // pink-500
-    base: '#64748b',    // slate-500
-    bg: '#f8fafc',      // slate-50
-    surface: '#ffffff', // white
-    text: '#0f172a',    // slate-900
-};
+import { PRESET_LIGHT, PRESET_DARK } from '../theme/presets';
 
-const PRESET_DARK: ThemeRoleColors = {
-    primary: '#22d3ee', // cyan-400
-    accent: '#f472b6',  // pink-400
-    base: '#94a3b8',    // slate-400
-    bg: '#0f172a',      // slate-900
-    surface: '#1e293b', // slate-800
-    text: '#f8fafc',    // slate-50
-};
+// Helper: get luminance from hex color (0 to 1)
+function getLuminance(hex: string): number {
+    const cleanHex = hex.startsWith('#') ? hex.slice(1) : hex;
+    if (cleanHex.length !== 6) return 1; // Fallback to light if invalid
+
+    const r = parseInt(cleanHex.slice(0, 2), 16) / 255;
+    const g = parseInt(cleanHex.slice(2, 4), 16) / 255;
+    const b = parseInt(cleanHex.slice(4, 6), 16) / 255;
+
+    const a = [r, g, b].map(v => {
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+}
 
 // Helper: apply all CSS variables to :root
 function applyColorsToRoot(colors: ThemeRoleColors) {
@@ -68,6 +77,18 @@ function applyColorsToRoot(colors: ThemeRoleColors) {
     root.style.setProperty('--color-surface-base', colors.surface);
     root.style.setProperty('--color-text-base', colors.text);
 
+    // New 12-param roles
+    root.style.setProperty('--color-text-sub', colors.subText || colors.base);
+    root.style.setProperty('--color-border-base', colors.border || colors.base);
+    root.style.setProperty('--color-input-bg', colors.inputBg || colors.bg); // Fallback to bg if missing
+    root.style.setProperty('--color-input-text', colors.inputText || colors.text);
+    root.style.setProperty('--color-button-bg', colors.buttonBg || colors.base);
+    root.style.setProperty('--color-button-text', colors.buttonText || colors.text);
+    root.style.setProperty('--color-icon-base', colors.icon || colors.accent);
+    root.style.setProperty('--color-badge-dept', colors.badgeDept || colors.surface);
+    root.style.setProperty('--color-badge-worktype', colors.badgeWorkType || colors.inputBg);
+    root.style.setProperty('--color-badge-detail', colors.badgeDetail || colors.inputBg);
+
     // Also update legacy variables directly
     root.style.setProperty('--bg-primary', colors.bg);
     root.style.setProperty('--text-primary', colors.text);
@@ -77,14 +98,27 @@ function applyColorsToRoot(colors: ThemeRoleColors) {
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // Persistent State
     const [activeThemeId, setActiveThemeId] = useState<ThemeType>(() => {
-        return (localStorage.getItem('theme_activeId') as ThemeType) || 'light';
+        const saved = localStorage.getItem('theme_activeId');
+        if (saved === 'custom1' || saved === 'custom2') return 'custom';
+        return (saved as ThemeType) || 'light';
     });
 
     const [customThemeData, setCustomThemeData] = useState<Record<string, ThemeRoleColors>>(() => {
         const saved = localStorage.getItem('theme_customData');
-        return saved ? JSON.parse(saved) : {
-            custom1: { ...PRESET_LIGHT },
-            custom2: { ...PRESET_DARK }
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                // Migration: Take custom1 as default custom if available, else custom2, else preset
+                const migratedCustom = parsed.custom || parsed.custom1 || parsed.custom2 || PRESET_LIGHT;
+                return {
+                    custom: { ...PRESET_LIGHT, ...migratedCustom }
+                };
+            } catch (e) {
+                console.error('Failed to parse saved theme data', e);
+            }
+        }
+        return {
+            custom: { ...PRESET_LIGHT }
         };
     });
 
@@ -97,6 +131,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const setEyeDropperActive = (active: boolean) => {
         setIsEyeDropperActive(active);
     };
+
+    const [isDark, setIsDark] = useState(activeThemeId === 'dark');
 
     // Effect: Apply Theme to :root
     useEffect(() => {
@@ -111,14 +147,22 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else if (activeThemeId === 'dark') {
             colors = PRESET_DARK;
         } else {
-            colors = customThemeData[activeThemeId] || PRESET_LIGHT;
+            colors = customThemeData.custom || PRESET_LIGHT;
         }
 
         // Apply CSS Variables via inline style (highest specificity, overrides all CSS rules)
         applyColorsToRoot(colors);
 
-        // Toggle .dark class for Tailwind dark: utilities
-        if (activeThemeId === 'dark') {
+        // Calculate and Toggle .dark class for Tailwind dark: utilities
+        let shouldBeDark = activeThemeId === 'dark';
+        if (activeThemeId === 'custom') {
+            const luminance = getLuminance(colors.bg || colors.surface);
+            shouldBeDark = luminance < 0.5;
+        }
+
+        setIsDark(shouldBeDark);
+
+        if (shouldBeDark) {
             root.classList.add('dark');
         } else {
             root.classList.remove('dark');
@@ -142,7 +186,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const startEditing = () => {
         if (activeThemeId === 'light' || activeThemeId === 'dark') return; // Cannot edit presets
-        const current = customThemeData[activeThemeId];
+        const current = customThemeData.custom || PRESET_LIGHT;
         setEditingColors({ ...current });
         setIsEditing(true);
     };
@@ -173,7 +217,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (isEditing && editingColors) return editingColors;
         if (activeThemeId === 'light') return PRESET_LIGHT;
         if (activeThemeId === 'dark') return PRESET_DARK;
-        return customThemeData[activeThemeId] || PRESET_LIGHT;
+        return customThemeData.custom || PRESET_LIGHT;
     };
 
     // Eye Dropper Global Listener
@@ -207,7 +251,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         // Use capture to intercept before React handlers
         document.addEventListener('click', handleGlobalClick, { capture: true });
-        return () => document.removeEventListener('click', handleGlobalClick, { capture: true });
+        document.addEventListener('mousedown', handleGlobalClick, { capture: true }); // Also capture mousedown to prevent focus/active states
+        return () => {
+            document.removeEventListener('click', handleGlobalClick, { capture: true });
+            document.removeEventListener('mousedown', handleGlobalClick, { capture: true });
+        };
     }, [isEyeDropperActive]);
 
     return (
@@ -223,7 +271,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             updateEditingColor,
             isEyeDropperActive,
             setEyeDropperActive,
-            getCurrentColors
+            getCurrentColors,
+            isDark
         }}>
             {children}
         </ThemeContext.Provider>

@@ -5,7 +5,7 @@ import { db, ScheduleCard } from '../db';
 import { useTimer } from '../contexts/TimerContext';
 import { useMaster } from '../contexts/MasterContext';
 import { format } from 'date-fns';
-import { Play, Square, RotateCcw, Trash2, AlertTriangle, Filter, Edit2, Lock, Unlock, GripVertical } from 'lucide-react';
+import { Play, Square, RotateCcw, Trash2, AlertTriangle, Filter, Edit2, Lock, Unlock, GripVertical, Layout, CheckSquare } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { SmartDetailInput } from '../components/SmartDetailInput';
 import {
@@ -68,6 +68,7 @@ export const SchedulePage: React.FC = () => {
     // State
     const [showCompleted, setShowCompleted] = useState(false);
     const [showLocked, setShowLocked] = useState(false);
+
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newItem, setNewItem] = useState({ deptId: '', workTypeId: '', detailTask: '', saveToMaster: false });
 
@@ -305,27 +306,31 @@ export const SchedulePage: React.FC = () => {
     return (
         <div className="space-y-6 pb-20">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold font-['Zen_Maru_Gothic'] text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                    <h1
+                        className="text-2xl font-bold font-['Zen_Maru_Gothic'] text-main-text flex items-center gap-2"
+                        data-theme-role="text"
+                    >
+                        <Layout size={24} className="text-icon" data-theme-role="icon" />
                         スケジュール
                     </h1>
-                    <p className="text-slate-500 text-sm mt-1">今日のタスクをボードで管理</p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+
+                <div className="flex flex-wrap items-center gap-3 w-full">
                     <button
                         onClick={handleDeleteAllDone}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                         title="完了タスクを全削除（ロック済みを除く）"
                     >
                         <Trash2 size={14} />
-                        <span className="hidden sm:inline">完了削除</span>
+                        <span>完了削除</span>
                     </button>
 
                     <button
                         onClick={() => setShowLocked(!showLocked)}
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showLocked
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
                             : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
                             }`}
                     >
@@ -335,7 +340,7 @@ export const SchedulePage: React.FC = () => {
 
                     <button
                         onClick={() => setShowCompleted(!showCompleted)}
-                        disabled={showLocked} // Disable conflict
+                        disabled={showLocked}
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showCompleted
                             ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                             : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200'
@@ -344,15 +349,19 @@ export const SchedulePage: React.FC = () => {
                         <Filter size={14} />
                         {showCompleted ? '完了を表示' : '完了を隠す'}
                     </button>
+
+                    <div className="flex-1" />
+
                     <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl shadow-lg hover:shadow-purple-500/20 transition-all font-medium"
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl shadow-lg hover:shadow-purple-500/20 transition-all font-medium"
                     >
                         <Play size={16} fill="currentColor" />
                         タスク追加
                     </button>
                 </div>
             </div>
+
 
             {/* Warning */}
             {activeLog && !scheduleCards?.some(c => c.status === 'doing') && (
@@ -390,7 +399,7 @@ export const SchedulePage: React.FC = () => {
 
                                 return (
                                     <SortableItem key={card.id} id={card.id} disabled={isFiltered}>
-                                        {({ isDragging, dragHandleProps }) => (
+                                        {({ dragHandleProps }) => (
                                             <div
                                                 className={`
                                                     relative overflow-hidden rounded-2xl border p-4 transition-all
@@ -398,9 +407,10 @@ export const SchedulePage: React.FC = () => {
                                                         ? 'bg-white dark:bg-slate-900 border-pink-200 dark:border-pink-900/50 shadow-lg shadow-pink-100 dark:shadow-none ring-1 ring-pink-100 dark:ring-pink-900/30'
                                                         : isDone
                                                             ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-800'
-                                                            : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md'
+                                                            : 'bg-surface border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md'
                                                     }
                                                 `}
+                                                data-theme-role="surface"
                                             >
                                                 {/* Done State styling wrapper for content excluding buttons */}
                                                 <div className={`${isDone ? 'opacity-75 grayscale-[0.5]' : ''}`}>
@@ -423,11 +433,17 @@ export const SchedulePage: React.FC = () => {
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <h3 className={`text-lg font-bold truncate ${isDone ? 'text-slate-500 line-through decoration-slate-300' : 'text-slate-800 dark:text-slate-100'}`}>
+                                                            <h3
+                                                                className={`text-lg font-bold truncate ${isDone ? 'text-sub-text line-through' : 'text-main-text'}`}
+                                                                data-theme-role={isDone ? 'subText' : 'text'}
+                                                            >
                                                                 {card.title || card.detailTask}
                                                             </h3>
                                                             {card.title !== card.detailTask && (
-                                                                <div className="text-xs text-slate-400 mt-0.5 truncate">{card.detailTask}</div>
+                                                                <div
+                                                                    className="text-xs text-sub-text mt-0.5 truncate"
+                                                                    data-theme-role="subText"
+                                                                >{card.detailTask}</div>
                                                             )}
                                                         </div>
                                                     </div>
@@ -472,7 +488,7 @@ export const SchedulePage: React.FC = () => {
                                                         <button
                                                             onClick={() => handleRestart(card)}
                                                             disabled={!!activeLog}
-                                                            className="h-10 px-4 rounded-xl bg-white dark:bg-slate-700 text-cyan-600 dark:text-cyan-300 font-bold border border-cyan-100 dark:border-cyan-800 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            className="h-10 px-4 rounded-xl bg-surface text-cyan-600 dark:text-cyan-300 font-bold border border-cyan-100 dark:border-cyan-800 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                                         >
                                                             <RotateCcw size={16} />
                                                             再開
@@ -544,7 +560,7 @@ export const SchedulePage: React.FC = () => {
             {/* Add Modal */}
             {isAddModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
+                    <div className="bg-surface w-full max-w-lg rounded-2xl shadow-xl border border-border p-6 space-y-4" data-theme-role="surface">
                         <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
                             タスクを追加
                         </h2>
@@ -554,7 +570,8 @@ export const SchedulePage: React.FC = () => {
                                 <select
                                     value={newItem.deptId}
                                     onChange={(e) => setNewItem({ ...newItem, deptId: e.target.value })}
-                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-pink-500/50"
+                                    className={`w-full bg-input-bg border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/30 ${!newItem.deptId ? 'text-sub-text/50' : 'text-input-text'}`}
+                                    data-theme-role="inputBg"
                                 >
                                     <option value="">(選択してください)</option>
                                     {departments.filter(d => d.enabled).map(d => (
@@ -567,7 +584,8 @@ export const SchedulePage: React.FC = () => {
                                 <select
                                     value={newItem.workTypeId}
                                     onChange={(e) => setNewItem({ ...newItem, workTypeId: e.target.value })}
-                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                    className={`w-full bg-input-bg border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/30 ${!newItem.workTypeId ? 'text-sub-text/50' : 'text-input-text'}`}
+                                    data-theme-role="inputBg"
                                 >
                                     <option value="">(未選択)</option>
                                     {workTypes.filter(w => w.enabled).map(w => (
@@ -594,16 +612,23 @@ export const SchedulePage: React.FC = () => {
 
             {/* Edit Modal */}
             {isEditModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 p-6 space-y-4">
-                        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">タスクを編集</h2>
-                        <div className="space-y-4">
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div
+                        className="bg-surface w-full max-w-lg rounded-2xl shadow-xl border border-border p-6 space-y-4"
+                        data-theme-role="surface"
+                    >
+                        <h2
+                            className="text-xl font-bold text-main-text"
+                            data-theme-role="text"
+                        >タスクを編集</h2>
+                        <div className="mt-4 space-y-4">
                             <div>
-                                <label className="block text-sm font-bold text-pink-600 dark:text-pink-400 mb-1">部門 <span className="text-red-500">*</span></label>
+                                <label className="block text-sm font-bold text-sub-text mb-1">部門 *</label>
                                 <select
                                     value={editForm.deptId}
                                     onChange={(e) => setEditForm({ ...editForm, deptId: e.target.value })}
-                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-pink-500/50"
+                                    className={`w-full bg-input-bg border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-primary/50 ${!editForm.deptId ? 'text-sub-text/50' : 'text-input-text'}`}
+                                    data-theme-role="inputBg"
                                 >
                                     <option value="">(選択してください)</option>
                                     {departments.filter(d => d.enabled).map(d => (
@@ -612,11 +637,12 @@ export const SchedulePage: React.FC = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-500 dark:text-slate-400 mb-1">作業種別 (任意)</label>
+                                <label className="block text-sm font-bold text-sub-text mb-1">作業種別 (任意)</label>
                                 <select
                                     value={editForm.workTypeId}
                                     onChange={(e) => setEditForm({ ...editForm, workTypeId: e.target.value })}
-                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                    className={`w-full bg-input-bg border border-border rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-accent/50 ${!editForm.workTypeId ? 'text-sub-text/50' : 'text-input-text'}`}
+                                    data-theme-role="inputBg"
                                 >
                                     <option value="">(未選択)</option>
                                     {workTypes.filter(w => w.enabled).map(w => (
@@ -634,12 +660,12 @@ export const SchedulePage: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 pt-4">
-                            <button onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">キャンセル</button>
-                            <button onClick={handleEditSave} className="px-5 py-2.5 rounded-xl font-bold bg-indigo-500 text-white hover:bg-indigo-600 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/20 transition-all">保存</button>
+                            <button onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 rounded-xl font-bold text-sub-text hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">キャンセル</button>
+                            <button onClick={handleEditSave} className="px-5 py-2.5 rounded-xl font-bold bg-primary text-button-text hover:opacity-90 shadow-lg shadow-primary/20 transition-all">保存</button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
+        </div >
     );
 };

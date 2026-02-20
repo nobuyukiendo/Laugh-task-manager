@@ -11,7 +11,7 @@ export const Button: React.FC<ButtonProps> = ({ variant = 'primary', size = 'md'
 
     const variants = {
         primary: "bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg active:scale-95",
-        secondary: "bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 active:scale-95",
+        secondary: "bg-button-bg hover:opacity-80 text-button-text active:scale-95",
         danger: "bg-rose-600 hover:bg-rose-500 text-white shadow-lg active:scale-95",
         ghost: "bg-transparent hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
     };
@@ -22,7 +22,11 @@ export const Button: React.FC<ButtonProps> = ({ variant = 'primary', size = 'md'
     };
 
     return (
-        <button className={clsx(base, variants[variant], sizes[size], className)} {...props} />
+        <button
+            className={clsx(base, variants[variant], sizes[size], className)}
+            data-theme-role={variant === 'primary' ? 'primary' : variant === 'secondary' ? 'buttonBg' : undefined}
+            {...props}
+        />
     );
 };
 
@@ -30,9 +34,10 @@ export const Button: React.FC<ButtonProps> = ({ variant = 'primary', size = 'md'
 export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ className, ...props }) => (
     <input
         className={clsx(
-            "w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-colors",
+            "w-full bg-input-bg border border-border rounded-lg px-4 py-2 text-input-text placeholder-slate-400 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors",
             className
         )}
+        data-theme-role="inputBg"
         {...props}
     />
 );
@@ -41,9 +46,10 @@ export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ c
 export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = ({ className, ...props }) => (
     <select
         className={clsx(
-            "w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-300 dark:border-slate-700 rounded-lg px-4 py-2 text-slate-900 dark:text-slate-100 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none transition-colors appearance-none scrollbar-thin",
+            "w-full bg-input-bg border border-border rounded-lg px-4 py-2 text-input-text focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors appearance-none scrollbar-thin",
             className
         )}
+        data-theme-role="inputBg"
         {...props}
     />
 );
@@ -52,14 +58,19 @@ export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (
 export const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
     <div
         className={clsx(
-            "bg-white dark:bg-slate-900/50 backdrop-blur-sm border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-xl",
+            "bg-surface backdrop-blur-sm border border-border rounded-xl p-6 shadow-xl",
             className
         )}
+        data-theme-role="surface"
         {...props}
     />
 );
 
 // --- Label ---
 export const Label: React.FC<React.LabelHTMLAttributes<HTMLLabelElement>> = ({ className, ...props }) => (
-    <label className={clsx("block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5", className)} {...props} />
+    <label
+        className={clsx("block text-xs font-bold text-sub-text mb-1.5", className)}
+        data-theme-role="subText"
+        {...props}
+    />
 );

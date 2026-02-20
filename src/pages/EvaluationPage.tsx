@@ -24,7 +24,10 @@ export const EvaluationPage: React.FC = () => {
     return (
         <div className={`min-h-screen ${activeThemeId === 'dark' ? 'dark bg-slate-950' : 'bg-slate-50'}`}>
             {/* ヘッダー */}
-            <header className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
+            <header
+                className="sticky top-0 z-20 bg-surface border-b border-border shadow-sm"
+                data-theme-role="surface"
+            >
                 <div className="max-w-[1920px] mx-auto px-4 py-4 flex items-center gap-4">
                     <button
                         onClick={() => window.close()}
@@ -53,10 +56,16 @@ export const EvaluationPage: React.FC = () => {
             <main className="max-w-[1920px] mx-auto p-4 pb-20">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-auto lg:h-[calc(100vh-100px)]">
                     {/* 左パネル：Trello */}
-                    <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-auto">
+                    <div
+                        className="bg-surface rounded-[2rem] border border-border shadow-sm overflow-auto"
+                        data-theme-role="surface"
+                    >
                         <div className="p-8">
                             <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 font-['Zen_Maru_Gothic']">
+                                <h2
+                                    className="text-xl font-black text-main-text font-['Zen_Maru_Gothic']"
+                                    data-theme-role="text"
+                                >
                                     Trello評価カード
                                 </h2>
                             </div>
@@ -65,10 +74,16 @@ export const EvaluationPage: React.FC = () => {
                     </div>
 
                     {/* 右パネル：週報 */}
-                    <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-auto">
+                    <div
+                        className="bg-surface rounded-[2rem] border border-border shadow-sm overflow-auto"
+                        data-theme-role="surface"
+                    >
                         <div className="p-8">
                             <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 font-['Zen_Maru_Gothic']">
+                                <h2
+                                    className="text-xl font-black text-main-text font-['Zen_Maru_Gothic']"
+                                    data-theme-role="text"
+                                >
                                     週報一覧
                                 </h2>
                             </div>

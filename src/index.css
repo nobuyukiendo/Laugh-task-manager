@@ -80,7 +80,19 @@
   --text-primary: var(--color-text-base);
   --card-bg: color-mix(in srgb, var(--color-surface-base), transparent 20%);
   /* 0.8 opacity */
-  --border-color: var(--theme-base-300);
+  --border-color: var(--color-border-base);
+
+  /* Defaults for new 12-param system (will be overridden by ThemeContext) */
+  --color-text-sub: #64748b;
+  --color-border-base: #e2e8f0;
+  --color-input-bg: #f8fafc;
+  --color-input-text: #0f172a;
+  --color-button-bg: #f1f5f9;
+  --color-button-text: #475569;
+  --color-icon-base: #64748b;
+  --color-badge-dept: #f1f5f9;
+  --color-badge-worktype: #f8fafc;
+  --color-badge-detail: #f1f5f9;
 }
 
 /* Dark Mode Override - Variables are now managed by ThemeContext inline styles.

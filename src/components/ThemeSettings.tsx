@@ -6,21 +6,25 @@ export const ThemeSettings: React.FC = () => {
     const {
         activeThemeId,
         setTheme,
-        isEditing,
-        startEditing,
-        cancelEditing,
+        customThemeData
     } = useTheme();
 
     const themes: { id: ThemeType; label: string; color: string }[] = [
         { id: 'light', label: 'ライト', color: '#f8fafc' },
         { id: 'dark', label: 'ダーク', color: '#0f172a' },
-        { id: 'custom1', label: 'カスタム', color: 'linear-gradient(135deg, #06b6d4, #ec4899)' },
+        { id: 'custom', label: 'カスタム', color: 'linear-gradient(135deg, #06b6d4, #ec4899)' },
     ];
 
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <Palette className="text-cyan-500" />
+            <h2
+                className="text-xl font-bold text-main-text flex items-center gap-2"
+                data-theme-role="text"
+            >
+                <Palette
+                    className="text-primary"
+                    data-theme-role="primary"
+                />
                 テーマ設定
             </h2>
 
@@ -31,19 +35,23 @@ export const ThemeSettings: React.FC = () => {
                         key={t.id}
                         onClick={() => setTheme(t.id)}
                         className={`relative p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${activeThemeId === t.id
-                            ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20'
-                            : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            ? 'border-primary bg-surface shadow-md'
+                            : 'border-border bg-surface hover:bg-slate-50 dark:hover:bg-slate-800'
                             }`}
+                        data-theme-role="surface"
                     >
                         <div
-                            className="w-12 h-12 rounded-full shadow-sm border border-slate-200 dark:border-slate-600"
+                            className="w-12 h-12 rounded-full shadow-sm border border-border"
                             style={{ background: t.color }}
                         />
-                        <span className={`font-bold text-sm ${activeThemeId === t.id ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                        <span
+                            className={`font-bold text-sm ${activeThemeId === t.id ? 'text-primary' : 'text-sub-text'}`}
+                            data-theme-role={activeThemeId === t.id ? "primary" : "subText"}
+                        >
                             {t.label}
                         </span>
                         {activeThemeId === t.id && (
-                            <div className="absolute top-2 right-2 text-cyan-500">
+                            <div className="absolute top-2 right-2 text-primary" data-theme-role="primary">
                                 <Check size={16} strokeWidth={3} />
                             </div>
                         )}
@@ -51,34 +59,26 @@ export const ThemeSettings: React.FC = () => {
                 ))}
             </div>
 
-            {/* Edit Panel (Only for Custom) */}
-            {activeThemeId.startsWith('custom') && (
-                <div className="mt-4">
-                    {!isEditing ? (
-                        <button
-                            onClick={startEditing}
-                            className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Palette size={18} /> 配色を変更する
-                        </button>
-                    ) : (
-                        <div className="bg-cyan-50 dark:bg-cyan-900/30 border border-cyan-200 dark:border-cyan-700 p-4 rounded-xl text-center">
-                            <p className="text-cyan-800 dark:text-cyan-200 font-bold mb-2">
-                                編集モード中
-                            </p>
-                            <p className="text-xs text-cyan-700 dark:text-cyan-300">
-                                画面右上のツールバーを使って配色を調整してください。
-                            </p>
-                            <button
-                                onClick={cancelEditing}
-                                className="mt-3 text-xs underline text-cyan-600 dark:text-cyan-400 hover:text-cyan-800"
-                            >
-                                編集をキャンセル
-                            </button>
-                        </div>
-                    )}
-                </div>
-            )}
+            <div
+                className="mt-8 bg-surface p-4 rounded-xl border border-border"
+                data-theme-role="surface"
+            >
+                <h3
+                    className="text-sm font-bold text-primary mb-2 flex items-center gap-2"
+                    data-theme-role="primary"
+                >
+                    <span className="text-xl">🎨</span>
+                    テーマのカスタマイズについて
+                </h3>
+                <p
+                    className="text-sm text-sub-text leading-relaxed"
+                    data-theme-role="subText"
+                >
+                    画面右上の「テーマ編集」ボタンから、選択中のテーマ（カスタム）を自由に編集できます。<br />
+                    「簡易モード」ではベース色を選ぶだけで、自動的に美しい配色が生成されます。<br />
+                    「詳細モード」ではパーツごとの色を細かく調整したり、画面上の要素をクリックして色を変更できる「スポイト機能」も利用可能です。
+                </p>
+            </div>
         </div>
     );
 };

@@ -632,8 +632,11 @@ export const DashboardPage: React.FC = () => {
     return (
         <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-8">
-                    <BarChart2 className="text-pink-500" />
+                <h1
+                    className="text-2xl font-bold text-main-text flex items-center gap-2 mb-8"
+                    data-theme-role="text"
+                >
+                    <BarChart2 className="text-icon" data-theme-role="icon" />
                     集計・分析
                 </h1>
             </div>
@@ -641,10 +644,16 @@ export const DashboardPage: React.FC = () => {
 
 
             {/* Controls */}
-            <div className="flex flex-col md:flex-row gap-4 p-4 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 items-end">
+            <div
+                className="flex flex-col md:flex-row gap-4 p-4 bg-surface rounded-xl border border-border items-end"
+                data-theme-role="surface"
+            >
                 <div>
                     <Label>期間</Label>
-                    <div className="flex bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                    <div
+                        className="flex bg-surface rounded-lg p-1 border border-border"
+                        data-theme-role="surface"
+                    >
                         {(['day', 'week', 'month'] as const).map(p => (
                             <button
                                 key={p}
@@ -665,7 +674,8 @@ export const DashboardPage: React.FC = () => {
                         <Button variant="ghost" size="sm" onClick={() => shiftDate(-1)}><ChevronLeft size={20} /></Button>
                         <input
                             type={period === 'month' ? 'month' : 'date'}
-                            className="flex-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-cyan-500"
+                            className="flex-1 bg-input-bg border border-border rounded-lg px-3 py-2 text-main-text outline-none focus:ring-2 focus:ring-primary"
+                            data-theme-role="inputBg"
                             value={period === 'month' ? format(targetDate, 'yyyy-MM') : format(targetDate, 'yyyy-MM-dd')}
                             onChange={e => e.target.valueAsDate && setTargetDate(e.target.valueAsDate)}
                         />
@@ -677,12 +687,15 @@ export const DashboardPage: React.FC = () => {
             {/* Scale-up Animation Container */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Total Duration */}
-                <Card className="flex flex-col items-center justify-center p-8 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800 shadow-lg">
-                    <div className="text-slate-500 dark:text-slate-400 text-sm mb-2 font-medium">合計作業時間</div>
+                <Card
+                    className="flex flex-col items-center justify-center p-8 bg-surface shadow-lg border-border"
+                    data-theme-role="surface"
+                >
+                    <div className="text-sub-text text-sm mb-2 font-medium" data-theme-role="subText">合計作業時間</div>
                     <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-purple-500 font-mono tracking-tighter">
                         {totalHours}
                     </div>
-                    <div className="text-sm text-slate-400 mt-2">hours</div>
+                    <div className="text-sm text-sub-text mt-2" data-theme-role="subText">hours</div>
                 </Card>
 
                 {/* Department Chart */}
@@ -792,7 +805,8 @@ export const DashboardPage: React.FC = () => {
                         コメント
                     </h3>
                     <textarea
-                        className="w-full min-h-[120px] bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg p-4 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all resize-y"
+                        className="w-full min-h-[120px] bg-input-bg border border-border rounded-lg p-4 text-sm text-main-text focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-y"
+                        data-theme-role="inputBg"
                         placeholder="今日の一言メモを入力..."
                         value={dailyComment}
                         onChange={e => saveDailyComment(e.target.value)}
@@ -834,7 +848,8 @@ export const DashboardPage: React.FC = () => {
                             <div className="flex flex-col gap-1.5">
                                 <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">部門フィルタ</Label>
                                 <select
-                                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all cursor-pointer"
+                                    className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-sm text-main-text focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer"
+                                    data-theme-role="inputBg"
                                     value={filterDeptId}
                                     onChange={e => setFilterDeptId(e.target.value)}
                                 >
@@ -847,7 +862,8 @@ export const DashboardPage: React.FC = () => {
                             <div className="flex flex-col gap-1.5">
                                 <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">作業種別フィルタ</Label>
                                 <select
-                                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all cursor-pointer"
+                                    className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-sm text-main-text focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all cursor-pointer"
+                                    data-theme-role="inputBg"
                                     value={filterWorkTypeId}
                                     onChange={e => setFilterWorkTypeId(e.target.value)}
                                 >
@@ -882,7 +898,8 @@ export const DashboardPage: React.FC = () => {
                         <div>
                             <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Editorial Notes (Editable/Saved)</h4>
                             <textarea
-                                className="w-full min-h-[400px] bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-lg p-4 text-xs font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all resize-y"
+                                className="w-full min-h-[400px] bg-input-bg border border-border rounded-lg p-4 text-xs font-mono text-main-text focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all resize-y"
+                                data-theme-role="inputBg"
                                 style={{ resize: 'vertical' }}
                                 value={editorialText}
                                 onChange={e => saveEditorialText(e.target.value)}

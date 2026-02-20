@@ -138,8 +138,11 @@ export const TimerPage: React.FC = () => {
 
     return (
         <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 font-['Zen_Maru_Gothic']">
-                <Play className="text-pink-500 fill-current" /> 作業を開始
+            <h1
+                className="text-2xl font-bold text-main-text flex items-center gap-2 font-['Zen_Maru_Gothic']"
+                data-theme-role="text"
+            >
+                <Play className="text-icon fill-current" data-theme-role="icon" /> 作業を開始
             </h1>
 
             {/* Notification Banner */}
@@ -155,15 +158,21 @@ export const TimerPage: React.FC = () => {
                 </div>
             )}
 
-            <div className="space-y-6 bg-white dark:bg-slate-900/50 p-6 rounded-[24px] shadow-sm border border-pink-100 dark:border-slate-800">
+            <div
+                className="space-y-6 bg-surface p-6 rounded-[24px] shadow-sm border border-border"
+                data-theme-role="surface"
+            >
 
-                {/* Dept */}
                 <div>
-                    <Label className="text-pink-600 dark:text-pink-400 font-bold mb-1 block">部門 <span className="text-rose-500">*</span></Label>
+                    <Label
+                        className="text-accent font-bold mb-1 block"
+                        data-theme-role="accent"
+                    >部門 <span className="text-rose-500">*</span></Label>
                     <Select
                         value={deptId}
                         onChange={e => setDeptId(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-pink-100 dark:border-slate-700 focus:border-pink-400 focus:ring-pink-200 rounded-xl py-3"
+                        className={`w-full bg-input-bg border-border rounded-xl py-3 ${!deptId ? 'text-sub-text/50' : 'text-input-text'}`}
+                        data-theme-role="inputBg"
                     >
                         <option value="">(選択してください)</option>
                         {departments.filter(d => d.enabled).map(d => (
@@ -174,11 +183,15 @@ export const TimerPage: React.FC = () => {
 
                 {/* Work Type */}
                 <div>
-                    <Label className="text-slate-600 dark:text-slate-400 font-bold mb-1 block">作業種別 (任意)</Label>
+                    <Label
+                        className="text-sub-text font-bold mb-1 block"
+                        data-theme-role="subText"
+                    >作業種別 (任意)</Label>
                     <Select
                         value={workTypeId}
                         onChange={e => setWorkTypeId(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-pink-100 dark:border-slate-700 focus:border-pink-400 focus:ring-pink-200 rounded-xl py-3"
+                        className={`w-full bg-input-bg border-border rounded-xl py-3 ${!workTypeId ? 'text-sub-text/50' : 'text-input-text'}`}
+                        data-theme-role="inputBg"
                     >
                         <option value="">(未選択)</option>
                         {workTypes.filter(w => w.enabled).map(w => (
@@ -200,6 +213,7 @@ export const TimerPage: React.FC = () => {
                         onClick={handleStart}
                         disabled={!deptId}
                         className="w-full py-4 text-lg font-bold rounded-2xl bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-400 hover:to-violet-400 text-white shadow-lg shadow-pink-200 dark:shadow-pink-900/20 transform transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        data-theme-role="accent"
                     >
                         <Play className="mr-2 fill-current" />
                         計測開始
@@ -278,8 +292,14 @@ const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: a
 
     if (isEditing) {
         return (
-            <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 shadow-lg animate-in zoom-in-95 duration-200">
-                <h3 className="text-xs font-bold text-indigo-500 mb-3 flex items-center justify-between">
+            <div
+                className="bg-surface border border-border rounded-xl p-4 shadow-lg animate-in zoom-in-95 duration-200"
+                data-theme-role="surface"
+            >
+                <h3
+                    className="text-xs font-bold text-primary mb-3 flex items-center justify-between"
+                    data-theme-role="primary"
+                >
                     <span>時間を編集</span>
                     <span className="text-[10px] text-slate-400">※直近の1件のみ</span>
                 </h3>
@@ -290,7 +310,8 @@ const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: a
                             type="time"
                             value={editValues.start}
                             onChange={e => setEditValues({ ...editValues, start: e.target.value })}
-                            className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm font-bold text-center"
+                            className="w-full bg-input-bg text-main-text border border-border rounded-lg px-2 py-1.5 text-sm font-bold text-center"
+                            data-theme-role="inputBg"
                         />
                     </div>
                     <div className="text-slate-300 mt-4">→</div>
@@ -300,7 +321,8 @@ const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: a
                             type="time"
                             value={editValues.end}
                             onChange={e => setEditValues({ ...editValues, end: e.target.value })}
-                            className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm font-bold text-center"
+                            className="w-full bg-input-bg text-main-text border border-border rounded-lg px-2 py-1.5 text-sm font-bold text-center"
+                            data-theme-role="inputBg"
                         />
                     </div>
                 </div>
@@ -339,10 +361,16 @@ const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: a
                 <Edit2 size={14} />
             </button>
 
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">今回登録した内容</h3>
+            <h3
+                className="text-xs font-bold text-sub-text mb-2"
+                data-theme-role="subText"
+            >今回登録した内容</h3>
             <div className="flex justify-between items-center">
                 <div className="space-y-1">
-                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                    <div
+                        className="text-sm font-bold text-main-text"
+                        data-theme-role="text"
+                    >
                         {departments.find(d => d.id === log.departmentId)?.name || '部門不明'}
                         {log.workTypeId && (
                             <>
@@ -468,7 +496,10 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
 
     return (
         <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl animate-in fade-in slide-in-from-top-2">
-            <h3 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 mb-3 flex items-center gap-2">
+            <h3
+                className="text-sm font-bold text-primary mb-3 flex items-center gap-2"
+                data-theme-role="primary"
+            >
                 <span className="bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 rounded text-xs">便利機能</span>
                 詳細作業 文面生成
             </h3>
@@ -481,7 +512,10 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
                 {/* Actually for MTG, it switches to MTG mode. Send/Check are for Message. */}
 
                 <div className="flex items-center gap-2">
-                    <div className="flex flex-1 bg-white dark:bg-slate-800 p-1 rounded-lg border border-indigo-100 dark:border-indigo-800/50">
+                    <div
+                        className="flex flex-1 bg-surface p-1 rounded-lg border border-border"
+                        data-theme-role="surface"
+                    >
                         {action === 'mtg' ? (
                             <button
                                 className="flex-1 py-1.5 text-xs font-bold rounded-md transition-all bg-pink-500 text-white shadow-sm pointer-events-none"
@@ -575,10 +609,16 @@ const TextGeneratorPanel: React.FC<TextGeneratorPanelProps> = ({ workTypeId, wor
                 </p>
 
                 {/* Preview & Apply */}
-                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-indigo-100 dark:border-indigo-800/50">
-                    <div className="text-[10px] text-slate-400 mb-1">プレビュー</div>
-                    <div className="text-sm font-medium text-slate-700 dark:text-slate-200 min-h-[1.25rem]">
-                        {(selectedPartnerIds.length > 0) || content || (action === 'mtg') ? generatedText : <span className="text-slate-300">入力するとここにプレビューが表示されます</span>}
+                <div
+                    className="bg-surface rounded-lg p-3 border border-border"
+                    data-theme-role="surface"
+                >
+                    <div className="text-[10px] text-sub-text mb-1" data-theme-role="subText">プレビュー</div>
+                    <div
+                        className="text-sm font-medium text-main-text min-h-[1.25rem]"
+                        data-theme-role="text"
+                    >
+                        {(selectedPartnerIds.length > 0) || content || (action === 'mtg') ? generatedText : <span className="text-sub-text" data-theme-role="subText">入力するとここにプレビューが表示されます</span>}
                     </div>
                 </div>
 

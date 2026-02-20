@@ -36,7 +36,10 @@ export const MasterPage: React.FC = () => {
                 <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
                     <ArrowLeft size={20} />
                 </Button>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">マスタ管理</h1>
+                <h1
+                    className="text-2xl font-bold text-main-text"
+                    data-theme-role="text"
+                >マスタ管理</h1>
             </div>
 
             {/* Tabs */}
@@ -335,7 +338,8 @@ const DetailTaskEditor = () => {
                         placeholder="詳細作業名..."
                         value={newName}
                         onChange={e => setNewName(e.target.value)}
-                        className="bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700"
+                        className="bg-input-bg text-main-text border-border"
+                        data-theme-role="inputBg"
                     />
                     <Button onClick={handleAdd} disabled={!newName.trim()}>
                         <Plus size={16} className="mr-2" /> 追加
@@ -503,8 +507,9 @@ const ListItem = ({
             "border-slate-200 dark:border-slate-700/50 hover:border-slate-400 dark:hover:border-slate-600",
             !item.enabled
                 ? "bg-slate-100/50 dark:bg-slate-900/30 opacity-60"
-                : "bg-white dark:bg-slate-800/30"
-        )}>
+                : "bg-surface"
+        )}
+            data-theme-role="surface">
             <div className="flex items-center gap-2 overflow-hidden">
                 <div
                     className="cursor-move p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
@@ -513,7 +518,10 @@ const ListItem = ({
                     <GripVertical size={18} />
                 </div>
 
-                <span className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{item.name}</span>
+                <span
+                    className="text-sm font-medium text-main-text truncate"
+                    data-theme-role="text"
+                >{item.name}</span>
             </div>
             <div className="flex gap-1 shrink-0">
                 <Button size="sm" variant="ghost" onClick={() => { setEditName(item.name); setIsEditing(true); }}>

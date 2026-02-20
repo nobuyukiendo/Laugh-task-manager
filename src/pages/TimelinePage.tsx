@@ -318,12 +318,18 @@ export const TimelinePage: React.FC = () => {
         setManualDetailInput('');
     };
 
-    if (!logs) return <div className="p-8 text-center text-slate-500">Loading...</div>;
+    if (!logs) return <div className="p-8 text-center text-sub-text" data-theme-role="subText">Loading...</div>;
 
     return (
         <div className="space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center justify-between">
-                <h1 style={{ color: isDark ? '#f1f5f9' : '#0f172a' }} className="text-2xl font-bold">今日の流れ (履歴)</h1>
+                <h1
+                    className="text-2xl font-bold text-main-text flex items-center gap-2"
+                    data-theme-role="text"
+                >
+                    <HistoryIcon className="text-icon" data-theme-role="icon" />
+                    今日の流れ (履歴)
+                </h1>
 
                 <div style={{ backgroundColor: isDark ? '#1e293b' : '#e2e8f0' }} className="flex items-center gap-2 p-1 rounded-lg">
                     <Button size="sm" variant="ghost" onClick={() => changeDate(-1)}><ChevronLeft size={16} /></Button>
@@ -337,7 +343,7 @@ export const TimelinePage: React.FC = () => {
                 <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r shadow-sm">
                     <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 font-bold mb-2">
                         <AlertCircle size={20} />
-                        <h3>履歴に登録されていないカレンダー予定 ({missingEvents.length}件)</h3>
+                        <h3 className="text-main-text font-bold" data-theme-role="text">履歴に登録されていないカレンダー予定 ({missingEvents.length}件)</h3>
                     </div>
                     <div className="space-y-1">
                         {missingEvents.map(ev => (
@@ -361,7 +367,7 @@ export const TimelinePage: React.FC = () => {
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 text-orange-800 dark:text-orange-200 font-bold">
                             <AlertCircle size={20} />
-                            <h3>Google連携の有効期限（目安:約60分）が切れました</h3>
+                            <h3 className="text-main-text font-bold" data-theme-role="text">Google連携の有効期限（目安:約60分）が切れました</h3>
                         </div>
                         <p className="text-sm text-orange-700 dark:text-orange-300">
                             セキュリティのため定期的にログアウトされます。再ログインすればすぐに復帰できます。
@@ -385,7 +391,8 @@ export const TimelinePage: React.FC = () => {
                             size="sm"
                             disabled={syncProgress.status === 'running'}
                             onClick={handleVerifySync}
-                            className={`gap-2 ${syncProgress.status !== 'running' ? 'bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300' : ''}`}
+                            className={`gap-2 ${syncProgress.status !== 'running' ? 'bg-surface border border-border text-sub-text' : ''}`}
+                            data-theme-role={syncProgress.status !== 'running' ? 'surface' : undefined}
                         >
                             <CalendarCheck size={16} />
                             {syncProgress.status === 'running' ? '確認中...' : '整合性チェック'}
@@ -412,7 +419,8 @@ export const TimelinePage: React.FC = () => {
                         size="sm"
                         variant="secondary"
                         onClick={() => setShowImportModal(true)}
-                        className="gap-1 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                        className="gap-1 border border-border bg-surface"
+                        data-theme-role="surface"
                     >
                         <CalendarCheck size={16} className="text-cyan-500" />
                         カレンダーからインポート
@@ -438,7 +446,8 @@ export const TimelinePage: React.FC = () => {
                                 type="time"
                                 value={manualForm.startTime}
                                 onChange={e => setManualForm({ ...manualForm, startTime: e.target.value })}
-                                className="bg-white dark:bg-black text-slate-900 dark:text-white border-slate-300 dark:border-slate-600"
+                                className="bg-input-bg text-main-text border-border"
+                                data-theme-role="inputBg"
                             />
                         </div>
                         <div>
@@ -447,7 +456,8 @@ export const TimelinePage: React.FC = () => {
                                 type="time"
                                 value={manualForm.endTime}
                                 onChange={e => setManualForm({ ...manualForm, endTime: e.target.value })}
-                                className="bg-white dark:bg-black text-slate-900 dark:text-white border-slate-300 dark:border-slate-600"
+                                className="bg-input-bg text-main-text border-border"
+                                data-theme-role="inputBg"
                             />
                         </div>
                     </div>
@@ -457,7 +467,8 @@ export const TimelinePage: React.FC = () => {
                             <Select
                                 value={manualForm.deptId}
                                 onChange={e => setManualForm({ ...manualForm, deptId: e.target.value })}
-                                className="bg-white dark:bg-black text-slate-900 dark:text-white border-slate-300 dark:border-slate-600 font-bold"
+                                className="bg-input-bg text-main-text border-border font-bold"
+                                data-theme-role="inputBg"
                             >
                                 <option value="">(選択してください)</option>
                                 {departments.filter(d => d.enabled).map(d => (
@@ -470,7 +481,8 @@ export const TimelinePage: React.FC = () => {
                             <Select
                                 value={manualForm.workTypeId}
                                 onChange={e => setManualForm({ ...manualForm, workTypeId: e.target.value })}
-                                className="bg-white dark:bg-black text-slate-900 dark:text-white border-slate-300 dark:border-slate-600 font-bold"
+                                className="bg-input-bg text-main-text border-border font-bold"
+                                data-theme-role="inputBg"
                             >
                                 <option value="">(未選択)</option>
                                 {workTypes.filter(w => w.enabled).map(w => (
@@ -512,7 +524,8 @@ export const TimelinePage: React.FC = () => {
                                 onKeyDown={e => {
                                     if (e.key === 'Enter') { e.preventDefault(); addManualDetail(manualDetailInput); }
                                 }}
-                                className="flex-1 bg-white dark:bg-black border-slate-300 dark:border-slate-600"
+                                className="flex-1 bg-input-bg border-border"
+                                data-theme-role="inputBg"
                             />
                             <div className="relative">
                                 <Select
@@ -608,7 +621,7 @@ export const TimelinePage: React.FC = () => {
 
             <div className="space-y-3">
                 {logs.length === 0 && (
-                    <div className="text-center py-10 text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                    <div className="text-center py-10 text-sub-text bg-surface border border-dashed border-border rounded-xl" data-theme-role="surface">
                         まだ記録がありません
                     </div>
                 )}
@@ -629,9 +642,10 @@ export const TimelinePage: React.FC = () => {
                                 className={`p-4 flex flex-col gap-2 cursor-pointer ${justAddedLogId === log.id
                                     ? 'bg-pink-50 dark:bg-pink-900/20'
                                     : hasError
-                                        ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-400 dark:border-rose-600'
-                                        : 'bg-white dark:bg-slate-900'
-                                    } data-[dark]:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm dark:shadow-none border border-slate-200 dark:border-slate-800`}
+                                        ? 'bg-amber-100 dark:bg-amber-900/30 ring-1 ring-amber-500'
+                                        : 'bg-surface'
+                                    } hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm dark:shadow-none border border-border`}
+                                data-theme-role={!log.calendar?.synced ? 'surface' : undefined}
                             >
                                 <div className="flex justify-between items-start">
                                     <div className="text-xs font-mono text-slate-400">
@@ -661,29 +675,46 @@ export const TimelinePage: React.FC = () => {
 
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <span className="font-bold text-lg bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                                        <span
+                                            className="px-2 py-0.5 bg-badge-dept text-xs text-input-text rounded-md font-bold"
+                                            data-theme-role="badgeDept"
+                                        >
                                             {departments.find(d => d.id === log.departmentId)?.name || '(部門不明)'}
                                         </span>
-                                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                                            / {workTypes.find(w => w.id === log.workTypeId)?.name || '未分類'}
+                                        <span
+                                            className="text-xs text-input-text ml-1"
+                                            style={{ color: 'var(--color-badge-worktype)' }}
+                                            data-theme-role="badgeWorkType"
+                                        >
+                                            {workTypes.find(w => w.id === log.workTypeId)?.name || '未分類'}
                                         </span>
                                     </div>
                                     <div className="flex flex-wrap gap-2 mb-2">
                                         {(log.detailTaskNames && log.detailTaskNames.length > 0) ? (
-                                            <span className="px-2 py-0.5 bg-slate-800 dark:bg-slate-700 rounded text-xs text-slate-300">
+                                            <span
+                                                className="px-2 py-0.5 bg-badge-detail rounded text-xs text-input-text border border-border"
+                                                data-theme-role="badgeDetail"
+                                            >
                                                 {log.detailTaskNames.join('、')}
                                             </span>
                                         ) : log.detailTaskIds.length > 0 ? (
                                             log.detailTaskIds.map(did => {
                                                 const dName = detailTasks.find(d => d.id === did)?.name;
                                                 return dName && (
-                                                    <span key={did} className="px-2 py-0.5 bg-slate-800 dark:bg-slate-700 rounded text-xs text-slate-300">
+                                                    <span
+                                                        key={did}
+                                                        className="px-2 py-0.5 bg-badge-detail rounded text-xs text-input-text border border-border"
+                                                        data-theme-role="badgeDetail"
+                                                    >
                                                         {dName}
                                                     </span>
                                                 );
                                             })
                                         ) : (
-                                            <span className="text-slate-500 text-xs italic">詳細なし</span>
+                                            <span
+                                                className="text-sub-text text-xs italic"
+                                                data-theme-role="subText"
+                                            >詳細なし</span>
                                         )}
                                     </div>
                                     {log.note && (
@@ -722,18 +753,22 @@ export const TimelinePage: React.FC = () => {
                 })}
             </div>
 
-            {editingLog && (
-                <EditLogModal log={editingLog} onClose={() => setEditingLog(null)} />
-            )}
+            {
+                editingLog && (
+                    <EditLogModal log={editingLog} onClose={() => setEditingLog(null)} />
+                )
+            }
 
-            {showImportModal && (
-                <ImportGCalModal
-                    onClose={() => setShowImportModal(false)}
-                    onImportSuccess={() => {
-                        // Success toast or refresh logic if needed
-                    }}
-                />
-            )}
-        </div>
+            {
+                showImportModal && (
+                    <ImportGCalModal
+                        onClose={() => setShowImportModal(false)}
+                        onImportSuccess={() => {
+                            // Success toast or refresh logic if needed
+                        }}
+                    />
+                )
+            }
+        </div >
     );
 };

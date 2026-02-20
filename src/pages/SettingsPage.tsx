@@ -34,10 +34,16 @@ export const SettingsPage: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <SettingsIcon className="text-cyan-500 dark:text-cyan-400" />
+                <h2
+                    className="text-xl font-bold text-main-text flex items-center gap-2"
+                    data-theme-role="text"
+                >
+                    <SettingsIcon
+                        className="text-icon"
+                        data-theme-role="icon"
+                    />
                     設定
-                </h1>
+                </h2>
             </div>
 
             {/* Theme Settings */}
@@ -47,8 +53,15 @@ export const SettingsPage: React.FC = () => {
 
             {/* General Settings */}
             <Card>
-                <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
-                    <Globe size={20} />
+                <h2
+                    className="text-lg font-semibold text-main-text mb-4 flex items-center gap-2"
+                    data-theme-role="text"
+                >
+                    <Globe
+                        size={20}
+                        className="text-primary"
+                        data-theme-role="primary"
+                    />
                     一般設定
                 </h2>
 
@@ -99,11 +112,18 @@ export const SettingsPage: React.FC = () => {
             <Card className="border-l-4 border-l-purple-500">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                            <Database size={20} />
+                        <h2
+                            className="text-lg font-semibold text-main-text flex items-center gap-2"
+                            data-theme-role="text"
+                        >
+                            <Database
+                                size={20}
+                                className="text-primary"
+                                data-theme-role="primary"
+                            />
                             マスタ管理
                         </h2>
-                        <p className="text-sm text-slate-400">部門、作業種別、詳細作業の追加・編集を行います</p>
+                        <p className="text-sm text-sub-text" data-theme-role="subText">部門、作業種別、詳細作業の追加・編集を行います</p>
                     </div>
                     <Button variant="secondary" onClick={() => navigate('/master')}>
                         管理画面へ
@@ -113,15 +133,25 @@ export const SettingsPage: React.FC = () => {
 
             {/* Google Calendar Integration */}
             <Card className={settings.calendar.connected ? "border-l-4 border-l-green-500" : ""}>
-                <h2 className="text-lg font-semibold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
-                    <Calendar size={20} />
+                <h2
+                    className="text-lg font-semibold text-main-text mb-4 flex items-center gap-2"
+                    data-theme-role="text"
+                >
+                    <Calendar
+                        size={20}
+                        className="text-primary"
+                        data-theme-role="primary"
+                    />
                     Googleカレンダー連携
                 </h2>
 
                 <div className="space-y-4">
                     {!settings.calendar.connected ? (
                         <div className="flex flex-col gap-3">
-                            <p className="text-sm text-slate-400">
+                            <p
+                                className="text-sm text-sub-text"
+                                data-theme-role="subText"
+                            >
                                 Googleアカウントと連携すると、完了した作業ログを自動でカレンダーに登録できます。
                             </p>
                             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md text-xs text-amber-700 dark:text-amber-300">
@@ -138,9 +168,12 @@ export const SettingsPage: React.FC = () => {
                             </div>
 
                             {/* Backup Status */}
-                            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
-                                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">最終バックアップ (Google Drive)</div>
-                                <div className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">
+                            <div className="p-3 bg-surface rounded-md border border-slate-200 dark:border-slate-700">
+                                <div className="text-xs text-sub-text mb-1" data-theme-role="subText">最終バックアップ (Google Drive)</div>
+                                <div
+                                    className="text-sm font-mono font-bold text-main-text"
+                                    data-theme-role="text"
+                                >
                                     {settings.calendar.lastBackupAt
                                         ? new Date(settings.calendar.lastBackupAt).toLocaleString()
                                         : 'まだ保存されていません'}

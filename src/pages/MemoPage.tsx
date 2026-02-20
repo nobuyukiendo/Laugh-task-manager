@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, MemoCard } from '../db';
+import { motion } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import { Plus, Trash2, Edit2, Calendar, CheckSquare, GripVertical, Check, X } from 'lucide-react';
 import { useMaster } from '../contexts/MasterContext';
@@ -87,10 +88,13 @@ const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDel
     };
 
     return (
-        <div
+        <motion.div
             ref={setNodeRef}
             style={style}
-            className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 hover:shadow-md transition-all relative group flex flex-col h-full"
+            layoutId={memo.id}
+            onClick={() => onEdit(memo)}
+            className="bg-surface rounded-2xl shadow-sm border border-border p-4 hover:shadow-md transition-all relative group flex flex-col h-full"
+            data-theme-role="surface"
         >
             {/* Action Buttons Row */}
             <div className="flex justify-between items-start mb-2">
@@ -118,8 +122,11 @@ const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDel
             </div>
 
             {/* Title */}
-            <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100 mb-2 leading-relaxed px-1">
-                {memo.title || <span className="text-slate-400 italic">無題</span>}
+            <h3
+                className="font-bold text-lg text-main-text mb-2 leading-relaxed px-1"
+                data-theme-role="text"
+            >
+                {memo.title || <span className="text-sub-text italic" data-theme-role="subText">無題</span>}
             </h3>
 
             {/* Quick Edit Body Area */}
@@ -148,10 +155,11 @@ const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDel
             ) : (
                 <div
                     onClick={() => setIsQuickEditing(true)} // Enable quick edit on click
-                    className="flex-1 text-slate-600 dark:text-slate-400 text-sm whitespace-pre-wrap min-h-[4rem] cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded p-1 -m-1 transition-colors"
+                    className="flex-1 text-main-text text-sm whitespace-pre-wrap min-h-[4rem] cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded p-1 -m-1 transition-colors"
+                    data-theme-role="text"
                     title="クリックして簡易編集"
                 >
-                    {memo.body || <span className="text-slate-300">メモの内容を入力...</span>}
+                    {memo.body || <span className="text-sub-text" data-theme-role="subText">メモの内容を入力...</span>}
                 </div>
             )}
 
@@ -172,7 +180,7 @@ const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDel
                     )}
                 </div>
             )}
-        </div>
+        </motion.div>
     );
 };
 
@@ -348,7 +356,10 @@ export const MemoPage: React.FC = () => {
     return (
         <div className="space-y-6 pb-20">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold font-['Zen_Maru_Gothic'] text-slate-800 dark:text-slate-100">
+                <h1
+                    className="text-2xl font-bold font-['Zen_Maru_Gothic'] text-main-text"
+                    data-theme-role="text"
+                >
                     メモ
                 </h1>
                 <button
@@ -387,8 +398,14 @@ export const MemoPage: React.FC = () => {
             {/* Edit Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl p-6 shadow-2xl">
-                        <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">
+                    <div
+                        className="bg-surface rounded-2xl w-full max-w-2xl p-6 shadow-2xl border border-border"
+                        data-theme-role="surface"
+                    >
+                        <h2
+                            className="text-xl font-bold mb-4 text-main-text"
+                            data-theme-role="text"
+                        >
                             {editingMemo ? 'メモを編集' : '新規メモ'}
                         </h2>
                         <div className="space-y-4">
@@ -398,7 +415,8 @@ export const MemoPage: React.FC = () => {
                                     type="text"
                                     value={formData.title}
                                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                    className="w-full bg-input-bg text-input-text border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50"
+                                    data-theme-role="inputBg"
                                     placeholder="タイトル（任意）"
                                 />
                             </div>
@@ -408,7 +426,8 @@ export const MemoPage: React.FC = () => {
                                     ref={modalBodyRef}
                                     value={formData.body}
                                     onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-cyan-500/50 min-h-[150px] resize-none overflow-hidden"
+                                    className="w-full bg-input-bg text-input-text border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50 min-h-[150px] resize-none overflow-hidden"
+                                    data-theme-role="inputBg"
                                     placeholder="メモの内容..."
                                 />
                             </div>
@@ -419,7 +438,8 @@ export const MemoPage: React.FC = () => {
                                         type="date"
                                         value={formData.targetDate}
                                         onChange={(e) => setFormData({ ...formData, targetDate: e.target.value })}
-                                        className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                        className="w-full bg-input-bg text-input-text border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50"
+                                        data-theme-role="inputBg"
                                     />
                                 </div>
                                 <div>
@@ -428,7 +448,8 @@ export const MemoPage: React.FC = () => {
                                         type="date"
                                         value={formData.dueDate}
                                         onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                                        className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                        className="w-full bg-input-bg text-input-text border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50"
+                                        data-theme-role="inputBg"
                                     />
                                 </div>
                             </div>
@@ -444,7 +465,7 @@ export const MemoPage: React.FC = () => {
             {/* Taskify Modal */}
             {isTaskifyModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+                    <div className="bg-surface dark:bg-slate-900 border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[85vh] overflow-y-auto" data-theme-role="surface">
                         <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">
                             メモをスケジュールに追加
                         </h2>
@@ -454,7 +475,8 @@ export const MemoPage: React.FC = () => {
                                 <select
                                     value={taskifyData.deptId}
                                     onChange={(e) => setTaskifyData({ ...taskifyData, deptId: e.target.value })}
-                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                    className={`w-full bg-input-bg border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50 ${!taskifyData.deptId ? 'text-sub-text/50' : 'text-input-text'}`}
+                                    data-theme-role="inputBg"
                                 >
                                     <option value="">選択してください</option>
                                     {departments.map(d => (
@@ -467,7 +489,8 @@ export const MemoPage: React.FC = () => {
                                 <select
                                     value={taskifyData.workTypeId}
                                     onChange={(e) => setTaskifyData({ ...taskifyData, workTypeId: e.target.value })}
-                                    className="w-full bg-slate-50 text-slate-900 dark:bg-slate-800 dark:text-slate-100 border-none rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                    className={`w-full bg-input-bg border border-border rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/50 ${!taskifyData.workTypeId ? 'text-sub-text/50' : 'text-input-text'}`}
+                                    data-theme-role="inputBg"
                                 >
                                     <option value="">選択してください</option>
                                     {workTypes.map(w => (

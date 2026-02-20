@@ -39,17 +39,17 @@ export const Layout: React.FC = () => {
 
     return (
         <div
-            className="min-h-screen transition-colors duration-300 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50"
+            className="min-h-screen transition-colors duration-300 bg-background text-main-text"
             data-theme-role="bg"
         >
             <ThemeEditorToolbar />
             {/* Mobile Header */}
             <div
-                className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-40 flex items-center justify-between px-4 shadow-sm"
+                className="md:hidden fixed top-0 left-0 right-0 h-16 bg-surface/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-40 flex items-center justify-between px-4 shadow-sm"
                 data-theme-role="surface"
             >
                 <div className="flex items-center gap-4">
-                    <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors z-50">
+                    <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 text-icon hover:opacity-80 rounded-full transition-colors z-50" data-theme-role="icon">
                         <Menu size={24} />
                     </button>
                     <span
@@ -61,7 +61,8 @@ export const Layout: React.FC = () => {
                 </div>
                 <button
                     onClick={toggleTheme}
-                    className="p-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-cyan-400 transition-colors border border-slate-200 dark:border-slate-700"
+                    className="p-2 rounded-full bg-button-bg text-button-text transition-colors border border-border"
+                    data-theme-role="buttonBg"
                 >
                     {isDark ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
@@ -74,7 +75,7 @@ export const Layout: React.FC = () => {
 
             {/* Sidebar */}
             <aside
-                className={`fixed top-0 left-0 bottom-0 w-72 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 z-[100] transition-transform duration-300 ease-out shadow-2xl md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                className={`fixed top-0 left-0 bottom-0 w-72 bg-surface border-r border-slate-200 dark:border-slate-800 z-[100] transition-transform duration-300 ease-out shadow-2xl md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
                 data-theme-role="surface"
             >
                 <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100 dark:border-slate-800">
@@ -98,10 +99,10 @@ export const Layout: React.FC = () => {
                             rel={item.path === '/evaluation' ? 'noopener noreferrer' : undefined}
                             onClick={() => setMobileOpen(false)}
                             className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 font-medium ${location.pathname === item.path
-                                ? 'bg-gradient-to-r from-cyan-500/10 to-purple-500/10 text-cyan-600 dark:text-cyan-400 shadow-sm'
-                                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200'
+                                ? 'bg-cyan-50 dark:bg-cyan-900/10 text-primary shadow-sm'
+                                : 'text-sub-text hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-main-text'
                                 }`}
-                            data-theme-role={location.pathname === item.path ? "primary" : undefined}
+                            data-theme-role={location.pathname === item.path ? "primary" : "subText"}
                         >
                             <item.icon size={20} strokeWidth={2} />
                             <span className="font-['Zen_Maru_Gothic']">{item.label}</span>
@@ -112,7 +113,8 @@ export const Layout: React.FC = () => {
                 <div className="absolute bottom-4 left-4 right-4 md:flex hidden">
                     <button
                         onClick={toggleTheme}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors font-medium border border-slate-200 dark:border-slate-700"
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-button-bg text-button-text hover:opacity-90 transition-colors font-medium border border-border"
+                        data-theme-role="buttonBg"
                     >
                         {isDark ? <><Sun size={18} /> Light Mode</> : <><Moon size={18} /> Dark Mode</>}
                     </button>
