@@ -5,6 +5,8 @@ import { db } from '../db';
 import { Sun, Moon, Timer, History, BarChart2, Settings, Menu, X, Database, HelpCircle, ClipboardCheck, ExternalLink, StickyNote, Calendar, AlertTriangle } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
+import { ThemeEditorToolbar } from './ThemeEditorToolbar';
+
 export const Layout: React.FC = () => {
     const { activeThemeId, setTheme } = useTheme();
 
@@ -40,6 +42,7 @@ export const Layout: React.FC = () => {
             className="min-h-screen transition-colors duration-300 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50"
             data-theme-role="bg"
         >
+            <ThemeEditorToolbar />
             {/* Mobile Header */}
             <div
                 className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-40 flex items-center justify-between px-4 shadow-sm"

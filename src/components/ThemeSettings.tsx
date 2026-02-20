@@ -66,8 +66,8 @@ export const ThemeSettings: React.FC = () => {
                         key={t.id}
                         onClick={() => setTheme(t.id)}
                         className={`relative p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${activeThemeId === t.id
-                                ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20'
-                                : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
                             }`}
                     >
                         <div
@@ -88,7 +88,7 @@ export const ThemeSettings: React.FC = () => {
 
             {/* Edit Panel (Only for Custom) */}
             {activeThemeId.startsWith('custom') && (
-                <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="animate-in fade-in slide-in-from-top-4 duration-300 mt-4">
                     {!isEditing ? (
                         <button
                             onClick={startEditing}
@@ -97,64 +97,19 @@ export const ThemeSettings: React.FC = () => {
                             <Palette size={18} /> 配色を変更する
                         </button>
                     ) : (
-                        <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 space-y-6 relative overflow-hidden">
-                            {/* Eye Dropper Toggle */}
-                            <div className="flex justify-end">
-                                <button
-                                    onClick={() => setEyeDropperActive(!isEyeDropperActive)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${isEyeDropperActive
-                                            ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30 scale-105'
-                                            : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
-                                        }`}
-                                >
-                                    <Pipette size={16} />
-                                    {isEyeDropperActive ? '要素をクリックして選択中...' : 'スポイトで選択'}
-                                </button>
-                            </div>
-
-                            {/* Color Pickers */}
-                            <div className="space-y-4">
-                                {(Object.entries(roleLabels) as [keyof ThemeRoleColors, string][]).map(([role, label]) => (
-                                    <div
-                                        key={role}
-                                        className={`transition-all duration-300 p-3 rounded-xl ${focusedRole === role ? 'bg-cyan-100 dark:bg-cyan-900/30 ring-2 ring-cyan-500 scale-105' : ''}`}
-                                    >
-                                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block">
-                                            {label}
-                                        </label>
-                                        <div className="flex items-center gap-3">
-                                            <input
-                                                type="color"
-                                                value={editingColors?.[role] || '#000000'}
-                                                onChange={(e) => updateEditingColor(role, e.target.value)}
-                                                className="w-12 h-12 bg-transparent cursor-pointer rounded-lg border-0 p-0"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={editingColors?.[role] || ''}
-                                                onChange={(e) => updateEditingColor(role, e.target.value)}
-                                                className="flex-1 py-2 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-mono text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                                <button
-                                    onClick={cancelEditing}
-                                    className="flex-1 py-3 text-slate-500 dark:text-slate-400 font-bold hover:text-slate-700 dark:hover:text-slate-200 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <X size={18} /> キャンセル
-                                </button>
-                                <button
-                                    onClick={saveEditing}
-                                    className="flex-1 py-3 bg-cyan-500 text-white font-bold rounded-xl hover:bg-cyan-600 transition-colors shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2"
-                                >
-                                    <Save size={18} /> 保存する
-                                </button>
-                            </div>
+                        <div className="bg-cyan-50 dark:bg-cyan-900/30 border border-cyan-200 dark:border-cyan-700 p-4 rounded-xl text-center">
+                            <p className="text-cyan-800 dark:text-cyan-200 font-bold mb-2">
+                                編集モード中
+                            </p>
+                            <p className="text-xs text-cyan-700 dark:text-cyan-300">
+                                画面右上のツールバーを使って配色を調整してください。
+                            </p>
+                            <button
+                                onClick={cancelEditing}
+                                className="mt-3 text-xs underline text-cyan-600 dark:text-cyan-400 hover:text-cyan-800"
+                            >
+                                編集をキャンセル
+                            </button>
                         </div>
                     )}
                 </div>
