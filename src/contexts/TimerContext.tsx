@@ -8,10 +8,11 @@ import { useSettings } from './SettingsContext';
 interface TimerContextType {
     activeLog: WorkLog | undefined;
     lastFinishedLog: WorkLog | null;
-    startTimer: (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string) => Promise<void>;
+    startTimer: (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string, metrics: any[]) => Promise<void>;
     stopTimer: () => Promise<void>;
     cancelTimer: () => Promise<void>;
     updateActiveNote: (note: string) => Promise<void>;
+    updateActiveMetrics: (metrics: any[]) => Promise<void>;
 }
 
 const TimerContext = createContext<TimerContextType | undefined>(undefined);
@@ -25,19 +26,10 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return await db.workLogs.where('status').equals('running').first();
     });
 
-    const applyRounding = (ts: number): number => {
-        const r = settings?.rounding ?? 1; // Default to 1 if missing
-        if (r <= 0) return ts; // "None" (0) logic (though we want strictly 1 min mostly)
-        /* 
-           Requested: "Must record in 1 minute units".
-           Standard approach: Floor to nearest minute (or 5 min).
-        */
-        const ms = r * 60 * 1000;
-        return Math.floor(ts / ms) * ms;
-    };
+
 
     // Start Timer
-    const startTimer = async (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string = '') => {
+    const startTimer = async (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string = '', metrics: any[] = []) => {
         if (activeLog) {
             throw new Error("Timer already running");
         }
@@ -64,6 +56,7 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             createdAt: Date.now(),
             updatedAt: Date.now(),
             durationSec: 0,
+            metrics,
         };
 
         await db.workLogs.add(newLog);
@@ -113,15 +106,8 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             while (true) {
                 const currentDateStr = formatInTimeZone(currentStart, tz, 'yyyy-MM-dd');
 
-                // Get start of NEXT day in target TZ
-                // We parse 'tomorrow' 00:00:00 in the given TZ
-                const tomorrowDate = new Date(currentStart);
-                tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-                const nextDayStartStr = formatInTimeZone(tomorrowDate, tz, 'yyyy-MM-dd 00:00:00');
-                // Use date-fns-tz parse if available, but here we can use a trick:
                 // Find the timestamp for next day 00:00 in that TZ.
                 // Since we need to be precise, let's use the offset.
-                const nextDayBoundary = new Date(nextDayStartStr).getTime();
                 // Caution: 'new Date(string)' might be flaky with TZ. 
                 // Better approach with date-fns-tz:
                 // However, simple split at 24:00 is usually enough for most cases.
@@ -193,6 +179,11 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         await db.workLogs.update(activeLog.id, { note, updatedAt: Date.now() });
     };
 
+    const updateActiveMetrics = async (metrics: any[]) => {
+        if (!activeLog) return;
+        await db.workLogs.update(activeLog.id, { metrics, updatedAt: Date.now() });
+    };
+
     return (
         <TimerContext.Provider value={{
             activeLog,
@@ -200,7 +191,8 @@ export const TimerProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             startTimer,
             stopTimer,
             cancelTimer,
-            updateActiveNote
+            updateActiveNote,
+            updateActiveMetrics
         }}>
             {children}
         </TimerContext.Provider>

@@ -21,6 +21,25 @@ export const getDailyCommentsAnchor = (): string => {
 };
 
 export const getWeeklySummary = ({ logs, departments, workTypes, detailTasks }: Omit<ReportData, 'startDate' | 'endDate'>): string => {
+    const blocks = getSummaryBlocks({ logs, departments, workTypes, detailTasks });
+    return [
+        blocks.total,
+        blocks.departments,
+        blocks.workTypes,
+        blocks.details,
+        blocks.metrics
+    ].filter(Boolean).join('\n\n');
+};
+
+export interface SummaryBlocks {
+    total: string;
+    departments: string;
+    workTypes: string;
+    details: string;
+    metrics: string;
+}
+
+export const getSummaryBlocks = ({ logs, departments, workTypes, detailTasks }: Omit<ReportData, 'startDate' | 'endDate'>, periodLabel: string = '週'): SummaryBlocks => {
     // Helpers to resolve names
     const getDeptName = (id: string) => departments.find(d => d.id === id)?.name || '不明な部門';
     const getWTName = (id: string) => workTypes.find(w => w.id === id)?.name || '未分類';
@@ -45,15 +64,14 @@ export const getWeeklySummary = ({ logs, departments, workTypes, detailTasks }: 
         const wName = l.workTypeId ? getWTName(l.workTypeId) : '未選択';
         wtMap[wName] = (wtMap[wName] || 0) + sec;
 
-        // Detail Task Aggregation
-        // Use detailTaskNames if present, otherwise fallback to detailTaskIds lookup
+        // Detail Task
         let namesToAggregate: string[] = [];
         if (l.detailTaskNames && l.detailTaskNames.length > 0) {
             namesToAggregate = l.detailTaskNames;
         } else if (l.detailTaskIds.length > 0) {
             namesToAggregate = l.detailTaskIds.map(did => {
                 const master = detailTasks.find(d => d.id === did);
-                return master ? master.name : '不明 (マスタ削除)';
+                return master ? master.name : '不明';
             });
         }
 
@@ -67,7 +85,6 @@ export const getWeeklySummary = ({ logs, departments, workTypes, detailTasks }: 
         }
     });
 
-    // Sort and Format Helper
     const formatMap = (map: Record<string, number>, limit = 5) => {
         return Object.entries(map)
             .sort(([, a], [, b]) => b - a)
@@ -76,15 +93,51 @@ export const getWeeklySummary = ({ logs, departments, workTypes, detailTasks }: 
             .join('\n');
     };
 
-    const deptStr = formatMap(deptMap);
-    const wtStr = formatMap(wtMap);
-    const dtStr = formatMap(dtMap, 8); // Top 8 details
+    // 3. Metrics Aggregation
+    const metricGroups: Record<string, { values: number[], unit: string }> = {};
+    logs.forEach(l => {
+        if (l.metrics) {
+            l.metrics.forEach(m => {
+                const key = `${m.name}|${m.unit}`;
+                if (!metricGroups[key]) metricGroups[key] = { values: [], unit: m.unit };
+                metricGroups[key].values.push(m.value);
+            });
+        }
+    });
 
-    return `【週合計】 ${totalMinutes} 分\n\n【部門別】\n${deptStr}\n\n【作業種別】\n${wtStr}\n\n【詳細作業 (Top 8)】\n${dtStr}`;
+    const metricLines = Object.entries(metricGroups).map(([key, group]) => {
+        const [name] = key.split('|');
+        return getMetricSummary(name, group.unit, group.values);
+    });
+
+    return {
+        total: `【${periodLabel}合計】 ${totalMinutes} 分`,
+        departments: `【部門別】\n${formatMap(deptMap)}`,
+        workTypes: `【作業種別】\n${formatMap(wtMap)}`,
+        details: `【詳細作業 (Top 8)】\n${formatMap(dtMap, 8)}`,
+        metrics: `【メトリクス】\n${metricLines.length > 0 ? metricLines.join('\n') : '(なし)'}`
+    };
 };
 
-export const getDefaultEditorialTemplate = (): string => {
-    return `
+export const getMetricSummary = (name: string, unit: string, values: number[]): string => {
+    const vals = [...values].sort((a, b) => a - b);
+    const sum = vals.reduce((a, b) => a + b, 0);
+    const avg = sum / vals.length;
+    const median = vals.length % 2 === 0
+        ? (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2
+        : vals[Math.floor(vals.length / 2)];
+
+    return `・${name}: 合計 ${sum}${unit} (平均 ${avg.toFixed(1)}${unit} / 中央値 ${median.toFixed(1)}${unit})`;
+};
+
+export const getDefaultEditorialTemplate = (startDate?: Date, endDate?: Date): string => {
+    const header = startDate && endDate ? getWeeklyHeader(startDate, endDate) : '【週次レビュー】\n〇月〇日～〇月〇日';
+    const anchor = getDailyCommentsAnchor();
+
+    return `${header}
+
+${anchor}
+
 ●試したこと・工夫したことの中で上手くいったことはありますか？
 ・施策：
 ・結果：
@@ -103,6 +156,8 @@ export const getDefaultEditorialTemplate = (): string => {
 (ここに入力)
 
 ●上手くいかず改善行動をしたけれど改善しなかったことは停止しましょう
+(ここに入力)
+
 ●今週停止の手続き（フロー改善）を今週の施策に記載しましょう
 (ここに入力)
 
@@ -119,10 +174,10 @@ export const getDefaultEditorialTemplate = (): string => {
 };
 
 export const generateWeeklyReport = (data: ReportData): string => {
-    const header = getWeeklyHeader(data.startDate, data.endDate);
-    const anchor = getDailyCommentsAnchor();
     const summary = getWeeklySummary(data);
-    const editorial = getDefaultEditorialTemplate();
+    const editorial = getDefaultEditorialTemplate(data.startDate, data.endDate);
 
-    return `${header}\n\n${anchor}\n${summary}\n--------------------------------------------------\n${editorial}`;
+    // This is now just a helper for backward compatibility if needed, 
+    // but the system is moving away from combined generation.
+    return `${editorial}\n\n${summary}`;
 };

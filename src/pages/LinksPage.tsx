@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ExternalLink, Plus, Trash2, Smile, Settings2, AlertTriangle, Check, Pencil, X, GripVertical } from 'lucide-react';
+import { ExternalLink, Plus, Trash2, Smile, Settings2, Check, Pencil, X, GripVertical } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { v4 as uuidv4 } from 'uuid';
@@ -385,18 +385,18 @@ export const LinksPage: React.FC = () => {
                                                     href={link.url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="flex items-center gap-6 p-7 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors"
+                                                    className="flex items-center gap-5 p-6 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors h-full min-h-[140px]"
                                                     // Prevent drag on content click
                                                     onPointerDown={(e) => e.stopPropagation()}
                                                 >
-                                                    <div className="flex-shrink-0 w-20 h-20 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-[1.5rem] text-5xl shadow-inner border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-transform">
+                                                    <div className="flex-shrink-0 w-16 h-16 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-[1.2rem] text-4xl shadow-inner border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-transform">
                                                         {link.icon || '🔗'}
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="text-xl font-black text-slate-900 dark:text-white truncate mb-1 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors">
+                                                    <div className="flex-1 min-w-0 py-1">
+                                                        <div className="text-lg font-black text-slate-900 dark:text-white leading-tight mb-1.5 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors break-words">
                                                             {link.name}
                                                         </div>
-                                                        <div className="text-xs font-mono text-slate-400 dark:text-slate-500 truncate opacity-70">
+                                                        <div className="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate opacity-70">
                                                             {link.url}
                                                         </div>
                                                     </div>

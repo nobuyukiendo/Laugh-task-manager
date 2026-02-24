@@ -5,11 +5,13 @@ import { useMaster } from '../contexts/MasterContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { Button, Input, Select, Label } from '../components/ui';
 import { Play, CheckCircle2, X, Edit2 } from 'lucide-react';
-import { WorkLog, db } from '../db';
+import { WorkLog, db, MetricEntry } from '../db';
 import { format } from 'date-fns';
 import { ActiveTimer } from '../components/ActiveTimer';
 import { SmartDetailInput } from '../components/SmartDetailInput';
+import { MetricsInputList } from '../components/metrics/MetricsInputList';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { validateMetrics } from '../utils/metrics';
 
 export const TimerPage: React.FC = () => {
     const timerContext = useTimer();
@@ -25,7 +27,11 @@ export const TimerPage: React.FC = () => {
     );
 
     const masterContext = useMaster();
-    const { departments, workTypes, detailTasks, partners, locations, addDetailTask, addRecentDetailTask } = masterContext;
+    const {
+        departments, workTypes, detailTasks, partners, locations,
+        addDetailTask, addRecentDetailTask,
+        addMetricMaster, addMetricHistory
+    } = masterContext;
     const settingsContext = useSettings();
     const { settings } = settingsContext;
     const navigate = useNavigate();
@@ -36,6 +42,7 @@ export const TimerPage: React.FC = () => {
     const [detailName, setDetailName] = useState('');
     const [saveToMaster, setSaveToMaster] = useState(false);
     const [note, setNote] = useState('');
+    const [metrics, setMetrics] = useState<MetricEntry[]>([]);
 
     // Notification State
     const [showRegistered, setShowRegistered] = useState(false);
@@ -68,6 +75,12 @@ export const TimerPage: React.FC = () => {
             return;
         }
 
+        const { error, validMetrics } = validateMetrics(metrics);
+        if (error) {
+            alert(error);
+            return;
+        }
+
         const normalizedName = normalizeTaskName(detailName);
         let finalDetailIds: string[] = [];
         let finalDetailNames: string[] = [];
@@ -91,13 +104,29 @@ export const TimerPage: React.FC = () => {
             }
         }
 
-        await startTimer(deptId, workTypeId, finalDetailIds, finalDetailNames, note);
+        // Handle Metrics Master/History saving
+        for (const m of validMetrics) {
+            // Always add to history
+            await addMetricHistory(m.name, m.unit);
+
+            // Conditional Master Save
+            if (m.isMasterLinked) {
+                await addMetricMaster({
+                    name: m.name,
+                    defaultUnit: m.unit,
+                    enabled: true
+                });
+            }
+        }
+
+        await startTimer(deptId, workTypeId, finalDetailIds, finalDetailNames, note, validMetrics);
 
         // Reset form (except deptId)
         setWorkTypeId('');
         setDetailName('');
         setSaveToMaster(false);
         setNote('');
+        setMetrics([]);
         setShowRegistered(false);
     };
 
@@ -105,6 +134,12 @@ export const TimerPage: React.FC = () => {
         // Capture current log before stopping
         const currentLog = activeLog;
         if (!currentLog) return; // Guard: prevent crash if activeLog is null
+
+        const { error } = validateMetrics(currentLog.metrics || []);
+        if (error) {
+            alert(error);
+            return;
+        }
 
         await stopTimer();
 
@@ -121,7 +156,7 @@ export const TimerPage: React.FC = () => {
 
     if (activeLog) {
         return (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent mb-6 flex items-center gap-2 font-['Zen_Maru_Gothic']">
                     <Play className="text-pink-500 fill-current" /> 計測中...
                 </h1>
@@ -132,6 +167,14 @@ export const TimerPage: React.FC = () => {
                     detailName={activeLog.detailTaskNames?.[0] || (activeLog.detailTaskIds.length > 0 ? '詳細タスクあり' : '')}
                     onStop={handleStop}
                 />
+
+                <div className="bg-surface p-6 rounded-[24px] shadow-sm border border-border" data-theme-role="surface">
+                    <h3 className="text-sm font-bold text-sub-text mb-4">メトリクスを入力</h3>
+                    <MetricsInputList
+                        metrics={activeLog.metrics || []}
+                        onChange={(updated) => timerContext.updateActiveMetrics(updated)}
+                    />
+                </div>
             </div>
         );
     }
@@ -208,6 +251,12 @@ export const TimerPage: React.FC = () => {
                     onSaveToMasterChange={setSaveToMaster}
                 />
 
+                {/* Metrics Entry List */}
+                <MetricsInputList
+                    metrics={metrics}
+                    onChange={setMetrics}
+                />
+
                 <div className="pt-4">
                     <Button
                         onClick={handleStart}
@@ -242,6 +291,7 @@ export const TimerPage: React.FC = () => {
 const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: any[] }> = ({ log, departments, workTypes }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editValues, setEditValues] = useState({ start: '', end: '' });
+    const [editMetrics, setEditMetrics] = useState<MetricEntry[]>([]);
 
     // Initialize inputs when entering edit mode
     useEffect(() => {
@@ -250,6 +300,7 @@ const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: a
                 start: format(log.startAt, 'HH:mm'),
                 end: log.endAt ? format(log.endAt, 'HH:mm') : ''
             });
+            setEditMetrics(log.metrics || []);
         }
     }, [isEditing, log]);
 
@@ -279,6 +330,7 @@ const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: a
             startAt: newStart.getTime(),
             endAt: newEnd.getTime(),
             durationSec,
+            metrics: editMetrics,
             updatedAt: Date.now()
         });
 
@@ -323,6 +375,16 @@ const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: a
                             onChange={e => setEditValues({ ...editValues, end: e.target.value })}
                             className="w-full bg-input-bg text-main-text border border-border rounded-lg px-2 py-1.5 text-sm font-bold text-center"
                             data-theme-role="inputBg"
+                        />
+                    </div>
+                </div>
+
+                <div className="mb-4">
+                    <span className="text-[10px] font-bold text-sub-text mb-2 block">メトリクスを編集</span>
+                    <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        <MetricsInputList
+                            metrics={editMetrics}
+                            onChange={setEditMetrics}
                         />
                     </div>
                 </div>
@@ -382,6 +444,20 @@ const EditableLogCard: React.FC<{ log: WorkLog; departments: any[]; workTypes: a
                     {(log.detailTaskNames?.[0] || log.detailTaskIds.length > 0) && (
                         <div className="text-xs text-slate-600 dark:text-slate-400">
                             {log.detailTaskNames?.[0] || '詳細タスク'}
+                        </div>
+                    )}
+
+                    {/* Metrics Preview */}
+                    {log.metrics && log.metrics.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                            {log.metrics.map((m, idx) => (
+                                <div
+                                    key={idx}
+                                    className="px-1.5 py-0.5 bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-100 dark:border-cyan-800 rounded text-[9px] font-bold text-cyan-600 dark:text-cyan-400"
+                                >
+                                    {m.name}: {m.value}{m.unit}
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>

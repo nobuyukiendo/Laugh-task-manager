@@ -23,7 +23,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-type Tab = 'departments' | 'workTypes' | 'detailTasks' | 'partners' | 'locations';
+type Tab = 'departments' | 'workTypes' | 'detailTasks' | 'partners' | 'locations' | 'metrics';
 
 export const MasterPage: React.FC = () => {
     const navigate = useNavigate();
@@ -50,6 +50,7 @@ export const MasterPage: React.FC = () => {
                     { id: 'detailTasks', label: '詳細作業' },
                     { id: 'partners', label: '相手' },
                     { id: 'locations', label: '場所' },
+                    { id: 'metrics', label: 'メトリクス' },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -72,6 +73,7 @@ export const MasterPage: React.FC = () => {
                 {activeTab === 'detailTasks' && <DetailTaskEditor />}
                 {activeTab === 'partners' && <PartnerEditor />}
                 {activeTab === 'locations' && <LocationEditor />}
+                {activeTab === 'metrics' && <MetricMasterEditor />}
             </Card>
         </div>
     );
@@ -525,6 +527,152 @@ const ListItem = ({
             </div>
             <div className="flex gap-1 shrink-0">
                 <Button size="sm" variant="ghost" onClick={() => { setEditName(item.name); setIsEditing(true); }}>
+                    <Edit2 size={16} />
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => onUpdate({ enabled: !item.enabled })}>
+                    {item.enabled ? <Eye size={16} className="text-cyan-600 dark:text-cyan-400" /> : <EyeOff size={16} className="text-slate-400 dark:text-slate-500" />}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={onDelete}>
+                    <Trash2 size={16} className="text-slate-500 hover:text-rose-500" />
+                </Button>
+            </div>
+        </div>
+    );
+};
+// --- Metric Master Editor ---
+const MetricMasterEditor = () => {
+    const { metricMasters, addMetricMaster, updateMetricMaster, deleteMetricMaster } = useMaster();
+    const [newName, setNewName] = useState('');
+    const [newUnit, setNewUnit] = useState('');
+
+    const handleAdd = async () => {
+        if (!newName.trim()) return;
+        await addMetricMaster({
+            name: newName,
+            defaultUnit: newUnit,
+            order: metricMasters.length + 1,
+            enabled: true
+        });
+        setNewName('');
+        setNewUnit('');
+    };
+
+    const handleReorder = async (newItems: any[]) => {
+        await Promise.all(newItems.map((item, index) => {
+            if (item.order !== index + 1) {
+                return updateMetricMaster(item.id, { order: index + 1 });
+            }
+            return Promise.resolve();
+        }));
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="p-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl space-y-4 border border-slate-200 dark:border-slate-700">
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">新しいメトリクスマスタを追加</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <Input
+                        placeholder="メトリクス名 (例: 記事本数)"
+                        value={newName}
+                        onChange={e => setNewName(e.target.value)}
+                    />
+                    <Input
+                        placeholder="デフォルト単位 (例: 本)"
+                        value={newUnit}
+                        onChange={e => setNewUnit(e.target.value)}
+                    />
+                </div>
+                <Button onClick={handleAdd} disabled={!newName.trim()} className="w-full">
+                    <Plus size={16} className="mr-2" /> 追加
+                </Button>
+            </div>
+
+            <SortableList
+                items={metricMasters}
+                onReorder={handleReorder}
+                renderItem={(item) => (
+                    <MetricListItem
+                        item={item}
+                        onUpdate={(u) => updateMetricMaster(item.id, u)}
+                        onDelete={() => { if (confirm('削除しますか？')) deleteMetricMaster(item.id); }}
+                    />
+                )}
+            />
+        </div>
+    );
+};
+
+const MetricListItem = ({
+    item,
+    onUpdate,
+    onDelete,
+    dragHandleProps
+}: {
+    item: any,
+    onUpdate: (p: any) => void,
+    onDelete: () => void,
+    dragHandleProps?: any
+}) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState(item.name);
+    const [editUnit, setEditUnit] = useState(item.defaultUnit);
+
+    const save = () => {
+        onUpdate({ name: editName, defaultUnit: editUnit });
+        setIsEditing(false);
+    };
+
+    if (isEditing) {
+        return (
+            <div className="flex flex-col gap-2 p-3 bg-slate-800 rounded-lg animate-in fade-in">
+                <div className="flex gap-2">
+                    <Input
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        autoFocus
+                        className="h-8 py-1 flex-[2]"
+                    />
+                    <Input
+                        value={editUnit}
+                        onChange={e => setEditUnit(e.target.value)}
+                        className="h-8 py-1 flex-1"
+                    />
+                </div>
+                <div className="flex justify-end gap-2">
+                    <Button size="sm" onClick={save}><Check size={16} /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}><X size={16} /></Button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className={clsx(
+            "flex items-center justify-between p-3 rounded-lg border transition-all",
+            "border-slate-200 dark:border-slate-700/50 hover:border-slate-400 dark:hover:border-slate-600",
+            !item.enabled
+                ? "bg-slate-100/50 dark:bg-slate-900/30 opacity-60"
+                : "bg-surface"
+        )}
+            data-theme-role="surface">
+            <div className="flex items-center gap-2 overflow-hidden">
+                <div
+                    className="cursor-move p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    {...dragHandleProps}
+                >
+                    <GripVertical size={18} />
+                </div>
+
+                <div className="flex flex-col overflow-hidden">
+                    <span
+                        className="text-sm font-medium text-main-text truncate"
+                        data-theme-role="text"
+                    >{item.name}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">単位: {item.defaultUnit}</span>
+                </div>
+            </div>
+            <div className="flex gap-1 shrink-0">
+                <Button size="sm" variant="ghost" onClick={() => { setEditName(item.name); setEditUnit(item.defaultUnit); setIsEditing(true); }}>
                     <Edit2 size={16} />
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => onUpdate({ enabled: !item.enabled })}>

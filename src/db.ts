@@ -64,6 +64,8 @@ export interface WorkLog {
 
     durationSec: number; // Calculated duration
 
+    metrics?: MetricEntry[]; // New: Metrics set
+
     // Google Calendar Sync Info
     calendar?: {
         synced: boolean;
@@ -119,6 +121,29 @@ export interface LinkIcon {
     order: number;
 }
 
+export interface MetricMaster {
+    id: string;
+    name: string;
+    defaultUnit: string;
+    enabled: boolean;
+    order?: number;
+}
+
+export interface MetricEntry {
+    id: string;
+    name: string;
+    value: number;
+    unit: string;
+    isMasterLinked: boolean;
+}
+
+export interface MetricHistory {
+    id: string;
+    name: string;
+    unit: string;
+    lastUsedAt: number;
+}
+
 
 class AppDatabase extends Dexie {
     departments!: Table<Department, string>;
@@ -135,6 +160,8 @@ class AppDatabase extends Dexie {
     linkIcons!: Table<LinkIcon, string>;
     memoCards!: Table<MemoCard, string>;
     scheduleCards!: Table<ScheduleCard, string>;
+    metricMasters!: Table<MetricMaster, string>;
+    metricHistories!: Table<MetricHistory, string>;
 
     constructor() {
         super('TimeTrackerDB');
@@ -187,6 +214,12 @@ class AppDatabase extends Dexie {
 
         this.version(11).stores({
             scheduleCards: 'id, status, order, isLocked'
+        });
+
+        this.version(12).stores({
+            metricMasters: 'id, &name, order, enabled',
+            metricHistories: 'id, &name, lastUsedAt',
+            workLogs: 'id, status, dateKey, departmentId, workTypeId, startAt, endAt' // metrics index is not needed for now, butDexie needs re-declaration
         });
     }
 }

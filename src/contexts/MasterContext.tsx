@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, Department, WorkType, DetailTask, RecentDetailTask, Partner, Location } from '../db';
+import { db, Department, WorkType, DetailTask, RecentDetailTask, Partner, Location, MetricMaster, MetricHistory } from '../db';
 
 interface MasterContextType {
     departments: Department[];
@@ -34,6 +34,14 @@ interface MasterContextType {
     addLocation: (location: Omit<Location, 'id'>) => Promise<string>;
     updateLocation: (id: string, u: Partial<Location>) => Promise<number>;
     deleteLocation: (id: string) => Promise<void>;
+
+    metricMasters: MetricMaster[];
+    addMetricMaster: (m: Omit<MetricMaster, 'id'>) => Promise<string>;
+    updateMetricMaster: (id: string, u: Partial<MetricMaster>) => Promise<number>;
+    deleteMetricMaster: (id: string) => Promise<void>;
+
+    metricHistories: MetricHistory[];
+    addMetricHistory: (name: string, unit: string) => Promise<string>;
 }
 
 const MasterContext = createContext<MasterContextType | undefined>(undefined);
@@ -45,6 +53,8 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const recentDetailTasks = useLiveQuery(() => db.recentDetailTasks.orderBy('lastUsedAt').reverse().toArray(), []) || [];
     const partners = useLiveQuery(() => db.partners.orderBy('order').toArray(), []) || [];
     const locations = useLiveQuery(() => db.locations.orderBy('order').toArray(), []) || [];
+    const metricMasters = useLiveQuery(() => db.metricMasters.orderBy('order').toArray(), []) || [];
+    const metricHistories = useLiveQuery(() => db.metricHistories.orderBy('lastUsedAt').reverse().toArray(), []) || [];
 
     const addDepartment = async (dept: Department) => {
         return await db.departments.add(dept);
@@ -133,6 +143,46 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const updateLocation = async (id: string, u: Partial<Location>) => db.locations.update(id, u);
     const deleteLocation = async (id: string) => { await db.locations.delete(id); };
 
+    // MetricMasters
+    const addMetricMaster = async (m: Omit<MetricMaster, 'id'>) => {
+        const id = uuidv4();
+        await db.metricMasters.add({ ...m, id });
+        return id;
+    };
+    const updateMetricMaster = async (id: string, u: Partial<MetricMaster>) => db.metricMasters.update(id, u);
+    const deleteMetricMaster = async (id: string) => { await db.metricMasters.delete(id); };
+
+    // MetricHistories (LRU 50)
+    const addMetricHistory = async (name: string, unit: string) => {
+        const existing = await db.metricHistories
+            .where({ name, unit })
+            .first();
+
+        const now = Date.now();
+        if (existing) {
+            await db.metricHistories.update(existing.id, { lastUsedAt: now });
+            return existing.id;
+        } else {
+            const id = uuidv4();
+            await db.metricHistories.add({
+                id,
+                name,
+                unit,
+                lastUsedAt: now
+            });
+
+            const count = await db.metricHistories.count();
+            if (count > 50) {
+                const oldest = await db.metricHistories
+                    .orderBy('lastUsedAt')
+                    .limit(count - 50)
+                    .toArray();
+                await db.metricHistories.bulkDelete(oldest.map(o => o.id));
+            }
+            return id;
+        }
+    };
+
     return (
         <MasterContext.Provider value={{
             departments,
@@ -145,7 +195,9 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             addDetailTask, updateDetailTask, deleteDetailTask,
             addRecentDetailTask,
             addPartner, updatePartner, deletePartner,
-            locations, addLocation, updateLocation, deleteLocation
+            locations, addLocation, updateLocation, deleteLocation,
+            metricMasters, addMetricMaster, updateMetricMaster, deleteMetricMaster,
+            metricHistories, addMetricHistory
         }}>
             {children}
         </MasterContext.Provider>

@@ -6,9 +6,17 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { X, Book, History as HistoryIcon } from 'lucide-react';
+import { MetricsInputList } from './metrics/MetricsInputList';
+import { MetricEntry } from '../db';
+
+import { validateMetrics } from '../utils/metrics';
 
 export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ log, onClose }) => {
-    const { departments, workTypes, detailTasks, recentDetailTasks, addDetailTask, addRecentDetailTask } = useMaster();
+    const {
+        departments, workTypes, detailTasks, recentDetailTasks,
+        addDetailTask, addRecentDetailTask,
+        addMetricMaster, addMetricHistory
+    } = useMaster();
     const { settings } = useSettings();
     const { syncLog } = useGoogleCalendar();
     const tz = settings?.timezone || 'UTC';
@@ -19,6 +27,7 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
     const [detailNames, setDetailNames] = useState<string[]>(log.detailTaskNames || []);
     const [detailInput, setDetailInput] = useState('');
     const [saveToMaster, setSaveToMaster] = useState(false);
+    const [metrics, setMetrics] = useState<MetricEntry[]>(log.metrics || []);
 
     const normalizeTaskName = (name: string) => {
         return name
@@ -41,6 +50,12 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
         if (!deptId) { setError('部門は必須です'); return; }
         if (!startStr) { setError('開始時間は必須です'); return; }
         if (!endStr) { setError('終了時間は必須です'); return; }
+
+        const { error: metricsError, validMetrics } = validateMetrics(metrics);
+        if (metricsError) {
+            setError(metricsError);
+            return;
+        }
 
         const startTs = toDate(startStr, { timeZone: tz }).getTime();
         const endTs = toDate(endStr, { timeZone: tz }).getTime();
@@ -78,8 +93,21 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
             startAt: finalStart,
             endAt: finalEnd,
             durationSec,
+            metrics: validMetrics,
             updatedAt: Date.now()
         };
+
+        // Handle Metrics Master/History saving
+        for (const m of validMetrics) {
+            await addMetricHistory(m.name, m.unit);
+            if (m.isMasterLinked) {
+                await addMetricMaster({
+                    name: m.name,
+                    defaultUnit: m.unit,
+                    enabled: true
+                });
+            }
+        }
 
         await db.workLogs.update(log.id, {
             departmentId: deptId,
@@ -90,6 +118,7 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
             startAt: finalStart,
             endAt: finalEnd,
             durationSec,
+            metrics: validMetrics,
             updatedAt: Date.now()
         });
 
@@ -259,6 +288,13 @@ export const EditLogModal: React.FC<{ log: WorkLog; onClose: () => void }> = ({ 
                                 追加
                             </Button>
                         </div>
+                    </div>
+
+                    <div className="border-t border-border pt-4">
+                        <MetricsInputList
+                            metrics={metrics}
+                            onChange={setMetrics}
+                        />
                     </div>
 
                     <div className="pt-4 flex gap-2">

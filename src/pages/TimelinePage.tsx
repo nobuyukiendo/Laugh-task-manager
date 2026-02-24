@@ -14,6 +14,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { exportAllData } from '../utils/dbExportImport';
 import { googleDriveService } from '../services/googleDriveService';
+import { MetricsInputList } from '../components/metrics/MetricsInputList';
+import { MetricEntry } from '../db';
+import { validateMetrics } from '../utils/metrics';
 
 export const TimelinePage: React.FC = () => {
     const navigate = useNavigate();
@@ -23,7 +26,11 @@ export const TimelinePage: React.FC = () => {
     });
 
     const { settings, updateSettings } = useSettings();
-    const { departments, workTypes, detailTasks, recentDetailTasks, addDetailTask, addRecentDetailTask } = useMaster();
+    const {
+        departments, workTypes, detailTasks, recentDetailTasks,
+        addDetailTask, addRecentDetailTask,
+        addMetricMaster, addMetricHistory
+    } = useMaster();
 
     // Date Navigation
     const [viewDate, setViewDate] = useState(new Date());
@@ -73,6 +80,7 @@ export const TimelinePage: React.FC = () => {
 
     const [manualDetailNames, setManualDetailNames] = useState<string[]>([]);
     const [manualDetailInput, setManualDetailInput] = useState('');
+    const [manualMetrics, setManualMetrics] = useState<MetricEntry[]>([]);
     const [saveToMaster, setSaveToMaster] = useState(false);
 
     const normalizeTaskName = (name: string) => {
@@ -552,12 +560,30 @@ export const TimelinePage: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Metrics Entry List */}
+                    <div className="space-y-2">
+                        <Label className="text-slate-600 dark:text-slate-400 font-bold block mb-0">メトリクス</Label>
+                        <div className="bg-white/50 dark:bg-slate-900/50 p-3 rounded-xl border border-border">
+                            <MetricsInputList
+                                metrics={manualMetrics}
+                                onChange={setManualMetrics}
+                            />
+                        </div>
+                    </div>
+
                     <Button
                         onClick={async () => {
                             if (!manualForm.startTime || !manualForm.endTime || !manualForm.deptId) {
                                 alert('開始時刻、終了時刻、部門は必須です');
                                 return;
                             }
+
+                            const { error, validMetrics } = validateMetrics(manualMetrics);
+                            if (error) {
+                                alert(error);
+                                return;
+                            }
+
                             const today = format(viewDate, 'yyyy-MM-dd');
                             const startAt = parse(`${today} ${manualForm.startTime}`, 'yyyy-MM-dd HH:mm', new Date()).getTime();
                             const endAt = parse(`${today} ${manualForm.endTime}`, 'yyyy-MM-dd HH:mm', new Date()).getTime();
@@ -585,6 +611,21 @@ export const TimelinePage: React.FC = () => {
                                 await addRecentDetailTask(currentInput, manualForm.workTypeId || '');
                             }
 
+                            // Handle Metrics Master/History saving
+                            for (const m of validMetrics) {
+                                // Always add to history
+                                await addMetricHistory(m.name, m.unit);
+
+                                // Conditional Master Save
+                                if (m.isMasterLinked) {
+                                    await addMetricMaster({
+                                        name: m.name,
+                                        defaultUnit: m.unit,
+                                        enabled: true
+                                    });
+                                }
+                            }
+
                             const durationSec = Math.floor((endAt - startAt) / 1000);
                             const finalNames = finalNamesRaw.map(normalizeTaskName).filter(Boolean);
                             const derivedIds = finalNames.map(name =>
@@ -605,10 +646,12 @@ export const TimelinePage: React.FC = () => {
                                 status: 'done',
                                 createdAt: Date.now(),
                                 updatedAt: Date.now(),
-                                timezone: timezone
+                                timezone: timezone,
+                                metrics: validMetrics
                             });
                             setManualForm({ startTime: '', endTime: '', deptId: '', workTypeId: '', note: '' });
                             setManualDetailNames([]);
+                            setManualMetrics([]);
                             setShowManualEntry(false);
                         }}
                         disabled={!manualForm.startTime || !manualForm.endTime || !manualForm.deptId}
@@ -718,8 +761,24 @@ export const TimelinePage: React.FC = () => {
                                         )}
                                     </div>
                                     {log.note && (
-                                        <div className="text-sm text-slate-400 dark:text-slate-400 bg-slate-900/50 dark:bg-slate-800/50 p-2 rounded">
+                                        <div className="text-sm text-slate-400 dark:text-slate-400 bg-slate-900/50 dark:bg-slate-800/50 p-2 rounded mb-2">
                                             {log.note}
+                                        </div>
+                                    )}
+
+                                    {/* Metrics Summary */}
+                                    {log.metrics && log.metrics.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 mt-1">
+                                            {log.metrics.map((m, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className="flex items-center gap-1 px-1.5 py-0.5 bg-cyan-100/50 dark:bg-cyan-900/30 border border-cyan-200 dark:border-cyan-800 rounded text-[10px] font-bold text-cyan-700 dark:text-cyan-300"
+                                                >
+                                                    <span className="opacity-70">{m.name}</span>
+                                                    <span>{m.value}</span>
+                                                    <span className="opacity-70 font-normal">{m.unit}</span>
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
 

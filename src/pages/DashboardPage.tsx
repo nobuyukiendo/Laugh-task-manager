@@ -15,14 +15,18 @@ import {
     BarElement
 } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format, intervalToDuration } from 'date-fns';
-import { PieChart, Copy, FileText, ChevronLeft, ChevronRight, BarChart2 } from 'lucide-react';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format } from 'date-fns';
 import {
-    getWeeklyHeader,
-    getWeeklySummary,
-    getDailyCommentsAnchor,
-    getDefaultEditorialTemplate
+    PieChart, Copy, FileText, ChevronLeft, ChevronRight, BarChart2, Calendar, Save, RotateCcw, Plus,
+    Calculator, BarChart3, ListChecks, Gauge
+} from 'lucide-react';
+import {
+    getDefaultEditorialTemplate,
+    getSummaryBlocks,
+    SummaryBlocks
 } from '../utils/reportGenerator';
+import { MetricDetailModal } from '../components/MetricDetailModal';
+import { EditLogModal } from '../components/EditLogModal';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -95,7 +99,6 @@ const formatDuration = (sec: number) => {
 };
 
 export const DashboardPage: React.FC = () => {
-    // const { settings } = useSettings();
     const { departments, workTypes, detailTasks } = useMaster();
     const { activeThemeId } = useTheme();
 
@@ -104,13 +107,6 @@ export const DashboardPage: React.FC = () => {
         const saved = localStorage.getItem('dashboardPeriod');
         return (saved === 'day' || saved === 'week' || saved === 'month') ? saved : 'week';
     });
-
-    // Save period to localStorage on change
-    useEffect(() => {
-        localStorage.setItem('dashboardPeriod', period);
-    }, [period]);
-
-    const [targetDate, setTargetDate] = useState(new Date());
 
     // Data State
     const [stats, setStats] = useState<any>(null);
@@ -126,6 +122,111 @@ export const DashboardPage: React.FC = () => {
     const [zoomDeptId, setZoomDeptId] = useState<string | null>(null);
     const [zoomWtId, setZoomWtId] = useState<string | null>(null);
     const [zoomHistory, setZoomHistory] = useState<Array<{ level: 'all' | 'dept' | 'wt', deptId: string | null, wtId: string | null }>>([]);
+
+    const [selectedMetric, setSelectedMetric] = useState<{ name: string, unit: string, entries: any[], totalDurationSec?: number } | null>(null);
+    const [pendingMetric, setPendingMetric] = useState<{
+        name: string,
+        unit: string,
+        sum: number,
+        count: number,
+        avg: number,
+        median: number,
+        totalDurationSec?: number
+    } | null>(null);
+    const [editingLogId, setEditingLogId] = useState<string | null>(null);
+
+    const MetricInsertionOptionsModal: React.FC<{
+        metric: { name: string, unit: string, sum: number, count: number, avg: number, median: number, totalDurationSec?: number };
+        onClose: () => void;
+        onConfirm: (options: { sum: boolean, count: boolean, avg: boolean, median: boolean, totalTime: boolean, density: boolean, weight: boolean }) => void;
+    }> = ({ metric, onClose, onConfirm }) => {
+        const [options, setOptions] = useState({ sum: true, count: true, avg: true, median: true, totalTime: false, density: false, weight: false });
+
+        const totalMinutes = metric.totalDurationSec ? metric.totalDurationSec / 60 : 0;
+        const unitPerHour = totalMinutes > 0 ? (metric.sum / totalMinutes) * 60 : 0;
+        const timePerUnit = metric.sum > 0 ? totalMinutes / metric.sum : 0;
+
+        const formatWeight = (val: number) => {
+            if (val === 0) return '0';
+            if (val < 0.01) return val.toFixed(5);
+            if (val < 1) return val.toFixed(3);
+            return val.toFixed(1);
+        };
+
+        return (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <Card className="w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="p-6 border-b border-border">
+                        <h3 className="text-lg font-bold text-main-text flex items-center gap-2">
+                            <Plus size={18} className="text-cyan-500" />
+                            何を挿入しますか？
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">{metric.name} ({metric.unit}) の統計情報</p>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            {[
+                                { id: 'sum', label: '合計', value: `${metric.sum}${metric.unit}`, visible: true },
+                                { id: 'count', label: '件数', value: `${metric.count}件`, visible: true },
+                                { id: 'avg', label: '平均', value: `${metric.avg.toFixed(1)}${metric.unit}`, visible: true },
+                                { id: 'median', label: '中央値', value: `${metric.median.toFixed(1)}${metric.unit}`, visible: true },
+                                { id: 'totalTime', label: '作業時間合計', value: `${Math.round(totalMinutes)}分`, visible: !!metric.totalDurationSec },
+                                { id: 'density', label: '単位1／時間', value: `${Math.round(unitPerHour).toLocaleString()}${metric.unit}／時`, visible: !!metric.totalDurationSec },
+                                { id: 'weight', label: '時間／単位1', value: `${formatWeight(timePerUnit)}分／${metric.unit}`, visible: !!metric.totalDurationSec },
+                            ].filter(opt => opt.visible).map(opt => (
+                                <label key={opt.id} className="flex flex-col p-3 rounded-xl border border-border bg-slate-50 dark:bg-slate-900/50 cursor-pointer hover:border-cyan-500/50 transition-all">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold text-slate-500">{opt.label}</span>
+                                        <input
+                                            type="checkbox"
+                                            className="w-4 h-4 rounded border-slate-300 text-cyan-500 focus:ring-cyan-500"
+                                            checked={(options as any)[opt.id]}
+                                            onChange={e => setOptions({ ...options, [opt.id]: e.target.checked })}
+                                        />
+                                    </div>
+                                    <div className="text-xs font-bold text-main-text">{opt.value}</div>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="p-6 border-t border-border flex gap-3">
+                        <Button variant="ghost" className="flex-1" onClick={onClose}>キャンセル</Button>
+                        <Button className="flex-1 shadow-cyan-500/20" onClick={() => onConfirm(options)}>挿入する</Button>
+                    </div>
+                </Card>
+            </div>
+        );
+    };
+
+    const SummaryBlock: React.FC<{ title: string; content: string; icon: React.ReactNode; onAdd?: () => void }> = ({ title, content, icon, onAdd }) => (
+        <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-4 border border-slate-200 dark:border-slate-700/50 group flex flex-col h-full">
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                    {icon}
+                    <span className="text-[10px] font-bold uppercase tracking-wider">{title}</span>
+                </div>
+                {onAdd && (
+                    <button
+                        onClick={onAdd}
+                        className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 rounded-lg border border-cyan-100 dark:border-cyan-800/50 transition-all active:scale-95"
+                    >
+                        <Plus size={12} />
+                        週報に追加
+                    </button>
+                )}
+            </div>
+            <pre className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed font-mono">
+                {content}
+            </pre>
+        </div>
+    );
+
+    // Save period to localStorage on change
+    useEffect(() => {
+        localStorage.setItem('dashboardPeriod', period);
+    }, [period]);
+
+    const [targetDate, setTargetDate] = useState(new Date());
 
     // Load Data
     // Live Data Query
@@ -172,31 +273,101 @@ export const DashboardPage: React.FC = () => {
     }, [logs, period, filterDeptId, filterWorkTypeId]);
 
     // Live Summary Calculation
-    const liveSummary = useMemo(() => {
-        if (period !== 'week' || !filteredWeeklyLogs) return '';
-        return getWeeklySummary({
+    const summaryBlocks = useMemo<SummaryBlocks | null>(() => {
+        if (!logs || logs.length === 0) return null;
+        return getSummaryBlocks({
             logs: filteredWeeklyLogs,
             departments,
             workTypes,
             detailTasks
-        });
-    }, [period, filteredWeeklyLogs, departments, workTypes, detailTasks]);
+        }, period === 'day' ? '日' : period === 'month' ? '月' : '週');
+    }, [filteredWeeklyLogs, departments, workTypes, detailTasks]);
 
-    // Editorial Persistence
-    useEffect(() => {
-        if (period === 'week') {
-            const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
-            const weekKey = format(sDate, 'yyyy-MM-dd');
-            const fullKey = `weeklyReportEditorial_${weekKey}_${filterDeptId}`;
-            const savedEditorial = localStorage.getItem(fullKey);
-
-            if (savedEditorial) {
-                setEditorialText(savedEditorial);
-            } else {
-                setEditorialText(getDefaultEditorialTemplate());
-            }
+    const insertBelowSeparator = (textToAdd: string) => {
+        const separator = '--------------------------------------------------';
+        const parts = editorialText.split(separator);
+        if (parts.length >= 2) {
+            const before = parts[0] + separator;
+            const after = parts.slice(1).join(separator);
+            saveEditorialText(before + '\n' + textToAdd + '\n' + after.trim());
         } else {
-            setEditorialText('');
+            saveEditorialText(textToAdd + '\n\n' + editorialText);
+        }
+    };
+
+    const appendToEditorial = (text: string) => {
+        if (!text) return;
+        insertBelowSeparator(text);
+    };
+
+    const saveTemplate = () => {
+        if (filterDeptId === 'all') {
+            alert('テンプレートを保存するには部門を選択してください。');
+            return;
+        }
+        if (confirm('現在の内容をこの部門のテンプレートとして保存しますか？')) {
+            localStorage.setItem(`reportTemplate_${filterDeptId}`, editorialText);
+            alert('テンプレートを保存しました。');
+        }
+    };
+
+    const resetTemplate = () => {
+        if (confirm('テンプレートを初期状態に戻しますか？')) {
+            const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
+            const eDate = endOfWeek(sDate, { weekStartsOn: 1 });
+            const defaultTmpl = getDefaultEditorialTemplate(sDate, eDate);
+            saveEditorialText(defaultTmpl);
+            localStorage.removeItem(`reportTemplate_${filterDeptId}`);
+        }
+    };
+
+    const getEditorialKey = () => {
+        let dateKey = '';
+        let prefix = '';
+        if (period === 'month') {
+            dateKey = format(targetDate, 'yyyy-MM');
+            prefix = 'monthlyReportEditorial';
+        } else if (period === 'week') {
+            const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
+            dateKey = format(sDate, 'yyyy-MM-dd');
+            prefix = 'weeklyReportEditorial';
+        } else {
+            dateKey = format(targetDate, 'yyyy-MM-dd');
+            prefix = 'dailyReportEditorial';
+        }
+        return `${prefix}_${dateKey}_${filterDeptId}`;
+    };
+
+    // Load Editorial
+    useEffect(() => {
+        const fullKey = getEditorialKey();
+        const savedEditorial = localStorage.getItem(fullKey);
+
+        if (savedEditorial) {
+            setEditorialText(savedEditorial);
+        } else {
+            if (period === 'week') {
+                const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
+                const eDate = endOfWeek(sDate, { weekStartsOn: 1 });
+
+                // Safe Template Selection
+                const now = new Date();
+                const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+                const isPastWeek = sDate.getTime() < thisWeekStart.getTime();
+
+                // Apply custom template only to current/future weeks, and if a department is selected
+                if (!isPastWeek && filterDeptId !== 'all') {
+                    const customTemplate = localStorage.getItem(`reportTemplate_${filterDeptId}`);
+                    if (customTemplate) {
+                        setEditorialText(customTemplate);
+                        return;
+                    }
+                }
+
+                setEditorialText(getDefaultEditorialTemplate(sDate, eDate));
+            } else {
+                setEditorialText('');
+            }
         }
     }, [period, targetDate, filterDeptId]);
 
@@ -227,65 +398,29 @@ export const DashboardPage: React.FC = () => {
 
     const saveEditorialText = (value: string) => {
         setEditorialText(value);
-        if (period === 'week') {
-            const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
-            const weekKey = format(sDate, 'yyyy-MM-dd');
-            const fullKey = `weeklyReportEditorial_${weekKey}_${filterDeptId}`;
-            localStorage.setItem(fullKey, value);
-        }
-    };
-
-    const upsertSection = (header: string, content: string, anchor: string) => {
-        let currentText = editorialText;
-        const headerIndex = currentText.indexOf(header);
-        const anchorIndex = currentText.indexOf(anchor);
-
-        const sectionStr = `${header}\n${content}\n\n`;
-
-        if (headerIndex !== -1) {
-            // Replace existing section
-            let nextIndex = currentText.indexOf('【', headerIndex + 1);
-            if (nextIndex === -1 || (anchorIndex !== -1 && nextIndex > anchorIndex)) {
-                nextIndex = anchorIndex !== -1 ? anchorIndex : currentText.length;
-            }
-            const before = currentText.substring(0, headerIndex);
-            const after = currentText.substring(nextIndex);
-            saveEditorialText(before + sectionStr + after);
-        } else {
-            // Insert at anchor
-            if (anchorIndex !== -1) {
-                const before = currentText.substring(0, anchorIndex);
-                const after = currentText.substring(anchorIndex);
-                saveEditorialText(before + sectionStr + after);
-            } else {
-                saveEditorialText(currentText + '\n' + sectionStr);
-            }
-        }
+        const fullKey = getEditorialKey();
+        localStorage.setItem(fullKey, value);
     };
 
     const insertDailyComments = () => {
-        const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
         const savedComments = JSON.parse(localStorage.getItem('dailyComments') || '{}');
         const lines: string[] = [];
-
+        const start = startOfWeek(targetDate, { weekStartsOn: 1 });
         for (let i = 0; i < 7; i++) {
-            const d = new Date(sDate);
+            const d = new Date(start);
             d.setDate(d.getDate() + i);
             const dateKey = format(d, 'yyyy-MM-dd');
             if (savedComments[dateKey]) {
-                lines.push(savedComments[dateKey]);
+                lines.push(`・${format(d, 'M/d')}: ${savedComments[dateKey]}`);
             }
         }
 
         if (lines.length === 0) {
-            alert('対象週の日次コメントが見つかりませんでした。');
+            alert('対象週の日次メモが見つかりませんでした。');
             return;
         }
 
-        const header = '【日次コメント】';
-        const content = lines.join('\n');
-        const anchor = '●試したこと・工夫したことの中で上手くいったことはありますか？';
-        upsertSection(header, content, anchor);
+        insertBelowSeparator(`【日次メモ】\n${lines.join('\n')}`);
     };
 
     const normalizeTaskString = (s: string) => {
@@ -396,10 +531,7 @@ export const DashboardPage: React.FC = () => {
             return;
         }
 
-        const header = '【先週比較（完全一致タスク）】';
-        const content = matchedLines.join('\n');
-        const anchor = '●試したこと・工夫したことの中で上手くいったことはありますか？';
-        upsertSection(header, content, anchor);
+        insertBelowSeparator(`【先週比較（完全一致タスク）】\n${matchedLines.join('\n')}`);
     };
 
     // Calculate Stats
@@ -459,6 +591,41 @@ export const DashboardPage: React.FC = () => {
                 tree[deptId].children[wtId].children[detailKey] = { id: detailKey, name: detailKey, sec: 0, children: {} };
             }
             tree[deptId].children[wtId].children[detailKey].sec += sec;
+            tree[deptId].children[wtId].children[detailKey].sec += sec;
+        });
+
+        // Metric Aggregation
+        const metricGroups: Record<string, { values: number[], unit: string, logs: any[] }> = {};
+        zoomFilteredLogs.forEach(l => {
+            if (l.metrics) {
+                l.metrics.forEach(m => {
+                    const key = `${m.name}|${m.unit}`;
+                    if (!metricGroups[key]) metricGroups[key] = { values: [], unit: m.unit, logs: [] };
+                    metricGroups[key].values.push(m.value);
+                    metricGroups[key].logs.push({
+                        logId: l.id,
+                        value: m.value,
+                        unit: m.unit,
+                        timestamp: l.startAt,
+                        deptName: departments.find(d => d.id === l.departmentId)?.name || '不明',
+                        wtName: workTypes.find(w => w.id === (l.workTypeId || ''))?.name || '',
+                        detailNames: l.detailTaskNames || [],
+                        durationSec: l.durationSec || 0
+                    });
+                });
+            }
+        });
+
+        const metricStats = Object.entries(metricGroups).map(([key, group]) => {
+            const [name] = key.split('|');
+            const vals = [...group.values].sort((a, b) => a - b);
+            const sum = vals.reduce((a, b) => a + b, 0);
+            const avg = sum / vals.length;
+            const median = vals.length % 2 === 0
+                ? (vals[vals.length / 2 - 1] + vals[vals.length / 2]) / 2
+                : vals[Math.floor(vals.length / 2)];
+            const totalDurationSec = group.logs.reduce((a, b) => a + b.durationSec, 0);
+            return { name, unit: group.unit, sum, avg, median, count: vals.length, entries: group.logs, totalDurationSec };
         });
 
         const datasets: any[] = [];
@@ -553,6 +720,7 @@ export const DashboardPage: React.FC = () => {
 
         setStats({
             totalSec,
+            metricStats,
             chartData: {
                 labels: zoomLevel === 'all' ? datasets[0].customMetadata.map((m: any) => m.dept) : [],
                 datasets
@@ -567,14 +735,12 @@ export const DashboardPage: React.FC = () => {
     const totalHours = (logs.reduce((acc, l) => acc + (l.durationSec || 0), 0) / 3600).toFixed(1);
 
     const copyReport = () => {
-        const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
-        const eDate = endOfWeek(targetDate, { weekStartsOn: 1 });
-        const header = getWeeklyHeader(sDate, eDate);
-        const anchor = getDailyCommentsAnchor();
-
-        const fullText = `${header}\n\n${anchor}\n${liveSummary}\n--------------------------------------------------\n${editorialText}`;
-        navigator.clipboard.writeText(fullText);
-        alert('週報をクリップボードにコピーしました！');
+        if (!editorialText) {
+            alert('コピーする内容がありません。');
+            return;
+        }
+        navigator.clipboard.writeText(editorialText);
+        alert('エディタの内容をクリップボードにコピーしました！');
     };
 
     const shiftDate = (amount: number) => {
@@ -641,8 +807,6 @@ export const DashboardPage: React.FC = () => {
                 </h1>
             </div>
 
-
-
             {/* Controls */}
             <div
                 className="flex flex-col md:flex-row gap-4 p-4 bg-surface rounded-xl border border-border items-end"
@@ -684,7 +848,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Scale-up Animation Container */}
+            {/* Visualization Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Total Duration */}
                 <Card
@@ -750,34 +914,17 @@ export const DashboardPage: React.FC = () => {
                                         },
                                         tooltip: {
                                             callbacks: {
-                                                title: () => '', // Suppress inappropriate title
+                                                title: () => '',
                                                 label: function (context: any) {
                                                     const value = context.raw || 0;
                                                     const total = context.dataset.totalSec || 1;
                                                     const percent = ((value / total) * 100).toFixed(1);
                                                     const meta = context.dataset.customMetadata?.[context.dataIndex];
-
                                                     if (!meta) return '';
-
                                                     const duration = formatDuration(value);
-                                                    if (meta.type === 'dept') {
-                                                        return [
-                                                            `部門：${meta.dept}`,
-                                                            `${duration} (${percent}%)`
-                                                        ];
-                                                    } else if (meta.type === 'wt') {
-                                                        return [
-                                                            meta.dept,
-                                                            `作業種別：${meta.wt}`,
-                                                            `${duration} (${percent}%)`
-                                                        ];
-                                                    } else {
-                                                        return [
-                                                            `${meta.dept} / ${meta.wt}`,
-                                                            `詳細：${meta.dt}`,
-                                                            `${duration} (${percent}%)`
-                                                        ];
-                                                    }
+                                                    if (meta.type === 'dept') return [`部門：${meta.dept}`, `${duration} (${percent}%)`];
+                                                    if (meta.type === 'wt') return [meta.dept, `作業種別：${meta.wt}`, `${duration} (${percent}%)`];
+                                                    return [`${meta.dept} / ${meta.wt}`, `詳細：${meta.dt}`, `${duration} (${percent}%)`];
                                                 }
                                             }
                                         }
@@ -785,24 +932,82 @@ export const DashboardPage: React.FC = () => {
                                 }}
                             />
                         </div>
-                    ) : logs.length > 0 ? (
+                    ) : (
                         <div className="text-center p-4">
                             <div className="text-slate-400 dark:text-slate-500 text-sm mb-2">
-                                {zoomLevel !== 'all' ? 'この項目の集計データが見つかりません' : '1分未満の記録は集計されません'}
+                                {logs.length > 0 ? 'この項目の集計データが見つかりません' : 'データがありません'}
                             </div>
-                            {zoomLevel === 'all' && <div className="text-xs text-slate-500 italic">※設定により1分単位で切り捨てられています</div>}
+                            {logs.length > 0 && zoomLevel === 'all' && (
+                                <div className="text-xs text-slate-500 italic">
+                                    ※設定により1分単位で切り捨てられています
+                                </div>
+                            )}
                         </div>
-                    ) : (
-                        <div className="text-slate-400 dark:text-slate-600 text-sm">データがありません</div>
                     )}
                 </Card>
             </div>
 
-            {/* Daily Comment Section */}
+            {/* Metrics Aggregation */}
+            {stats?.metricStats && stats.metricStats.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {stats.metricStats.map((ms: any, i: number) => (
+                        <Card
+                            key={i}
+                            className="p-4 border-l-4 border-l-cyan-400 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98] relative group/metric"
+                            onClick={() => setSelectedMetric(ms)}
+                        >
+                            <div className="flex justify-between items-start mb-2">
+                                <h4 className="text-sm font-bold text-main-text">{ms.name}</h4>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">{ms.count}件</span>
+                                    {period === 'week' && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setPendingMetric({
+                                                    name: ms.name,
+                                                    unit: ms.unit,
+                                                    sum: ms.sum,
+                                                    count: ms.count,
+                                                    avg: ms.avg,
+                                                    median: ms.median,
+                                                    totalDurationSec: ms.totalDurationSec
+                                                });
+                                            }}
+                                            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 rounded-lg border border-cyan-100 dark:border-cyan-800/50 transition-all active:scale-95"
+                                            title="週報に追加"
+                                        >
+                                            <Plus size={12} />
+                                            週報に追加
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex justify-between items-baseline mb-1">
+                                    <span className="text-[10px] text-slate-500">合計</span>
+                                    <span className="text-lg font-bold text-cyan-500">{ms.sum}<small className="ml-1 text-[10px] text-slate-400 font-normal">{ms.unit}</small></span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                    <div>
+                                        <div className="text-[10px] text-slate-400">平均</div>
+                                        <div className="text-xs font-semibold">{ms.avg.toFixed(1)}{ms.unit}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] text-slate-400">中央値</div>
+                                        <div className="text-xs font-semibold">{ms.median.toFixed(1)}{ms.unit}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    ))}
+                </div>
+            )}
+
             {period === 'day' && (
                 <Card className="border-l-4 border-l-cyan-500 shadow-lg p-6">
                     <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2">
-                        コメント
+                        <Calendar size={16} /> 今日の一言
                     </h3>
                     <textarea
                         className="w-full min-h-[120px] bg-input-bg border border-border rounded-lg p-4 text-sm text-main-text focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-y"
@@ -814,106 +1019,236 @@ export const DashboardPage: React.FC = () => {
                 </Card>
             )}
 
-            {/* Weekly Report Section */}
-            {period === 'week' && (
-                <Card className="border-l-4 border-l-purple-500 shadow-xl overflow-hidden">
-                    <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                                <FileText size={20} className="text-purple-500" />
-                                週報テンプレート
-                            </h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                                今週の集計結果がテンプレートに自動入力されました。<br />
-                                コピーして週報に貼り付けてください。
-                            </p>
+            {/* Summary Blocks (Unified for all periods) */}
+            <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 pl-1">
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                        Live Summary Blocks
+                    </h3>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">部門:</span>
+                            <select
+                                className="bg-white dark:bg-slate-900 border border-border rounded-lg px-2 py-1 text-xs text-main-text outline-none focus:ring-1 focus:ring-primary/50"
+                                value={filterDeptId}
+                                onChange={e => setFilterDeptId(e.target.value)}
+                            >
+                                <option value="all">全て</option>
+                                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            </select>
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <Button onClick={copyReport} className="bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-500/20 w-full md:w-auto">
-                                <Copy size={16} className="mr-2" />
-                                コピー
-                            </Button>
-                            <Button onClick={insertDailyComments} variant="secondary" size="md" className="border-purple-300 text-purple-700 dark:border-purple-800 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 w-full md:w-auto">
-                                日次コメントを挿入
-                            </Button>
-                            <Button onClick={insertLastWeekComparison} variant="secondary" size="md" className="border-purple-300 text-purple-700 dark:border-purple-800 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 w-full md:w-auto">
-                                先週比較を挿入
-                            </Button>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">作業種別:</span>
+                            <select
+                                className="bg-white dark:bg-slate-900 border border-border rounded-lg px-2 py-1 text-xs text-main-text outline-none focus:ring-1 focus:ring-primary/50"
+                                value={filterWorkTypeId}
+                                onChange={e => setFilterWorkTypeId(e.target.value)}
+                            >
+                                <option value="all">全て</option>
+                                {workTypes.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                <option value={NO_WT_ID}>作業種別なし</option>
+                            </select>
                         </div>
                     </div>
+                </div>
+                {summaryBlocks ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <SummaryBlock
+                            title="合計時間"
+                            icon={<Calculator size={14} />}
+                            content={summaryBlocks.total}
+                            onAdd={period === 'week' ? () => appendToEditorial(summaryBlocks.total) : undefined}
+                        />
+                        <SummaryBlock
+                            title="部門別"
+                            icon={<BarChart3 size={14} />}
+                            content={summaryBlocks.departments}
+                            onAdd={period === 'week' ? () => appendToEditorial(summaryBlocks.departments) : undefined}
+                        />
+                        <SummaryBlock
+                            title="作業種別"
+                            icon={<ListChecks size={14} />}
+                            content={summaryBlocks.workTypes}
+                            onAdd={period === 'week' ? () => appendToEditorial(summaryBlocks.workTypes) : undefined}
+                        />
+                        <SummaryBlock
+                            title="詳細作業"
+                            icon={<ListChecks size={14} />}
+                            content={summaryBlocks.details}
+                            onAdd={period === 'week' ? () => appendToEditorial(summaryBlocks.details) : undefined}
+                        />
+                        <div className="md:col-span-2">
+                            <SummaryBlock
+                                title="メトリクス"
+                                icon={<Gauge size={14} />}
+                                content={summaryBlocks.metrics}
+                                onAdd={period === 'week' ? () => appendToEditorial(summaryBlocks.metrics) : undefined}
+                            />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-8 text-center text-slate-400 bg-slate-50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                        集計対象のデータがありません
+                    </div>
+                )}
+            </div>
 
-                    <div className="space-y-4">
-                        {/* Summary Filters */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800">
-                            <div className="flex flex-col gap-1.5">
-                                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">部門フィルタ</Label>
-                                <select
-                                    className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-sm text-main-text focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all cursor-pointer"
-                                    data-theme-role="inputBg"
-                                    value={filterDeptId}
-                                    onChange={e => setFilterDeptId(e.target.value)}
-                                >
-                                    <option value="all">全て</option>
-                                    {departments.map(d => (
-                                        <option key={d.id} value={d.id}>{d.name}</option>
-                                    ))}
-                                </select>
+            {period === 'week' && (
+                <Card className="border-l-4 border-l-purple-500 shadow-xl p-6">
+                    <div className="flex flex-col gap-6">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                    <FileText size={20} className="text-purple-500" />
+                                    週報エディタ
+                                </h3>
+                                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-xl border border-border">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={insertDailyComments}
+                                        className="h-8 gap-1.5 px-3 text-[10px] font-bold hover:bg-white dark:hover:bg-slate-800"
+                                    >
+                                        <Plus size={14} /> 日次コメント挿入
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={insertLastWeekComparison}
+                                        className="h-8 gap-1.5 px-3 text-[10px] font-bold hover:bg-white dark:hover:bg-slate-800"
+                                    >
+                                        <Plus size={14} /> 先週比較挿入
+                                    </Button>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-1.5">
-                                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">作業種別フィルタ</Label>
-                                <select
-                                    className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-sm text-main-text focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all cursor-pointer"
-                                    data-theme-role="inputBg"
-                                    value={filterWorkTypeId}
-                                    onChange={e => setFilterWorkTypeId(e.target.value)}
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={saveTemplate}
+                                    className="h-9 w-9 p-0 border border-border shadow-sm"
+                                    title="テンプレートとして保存"
                                 >
-                                    <option value="all">全て</option>
-                                    {workTypes.map(w => (
-                                        <option key={w.id} value={w.id}>{w.name}</option>
-                                    ))}
-                                    <option value={NO_WT_ID}>作業種別なし</option>
-                                </select>
-                            </div>
-                            <div className="md:col-span-2 text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                                <span className="bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded">表示条件</span>
-                                <span>
-                                    {filterDeptId === 'all' ? '全て' : departments.find(d => d.id === filterDeptId)?.name}
-                                    {' × '}
-                                    {filterWorkTypeId === 'all' ? '全て' : workTypes.find(w => w.id === filterWorkTypeId)?.name}
-                                </span>
+                                    <Save size={16} />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={resetTemplate}
+                                    className="h-9 w-9 p-0 border border-border shadow-sm text-pink-500"
+                                    title="初期状態に戻す"
+                                >
+                                    <RotateCcw size={16} />
+                                </Button>
+                                <div className="w-px h-6 bg-border mx-1" />
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={copyReport}
+                                    className="h-9 gap-2 px-4 shadow-sm border border-border font-bold"
+                                >
+                                    <Copy size={16} /> コピー
+                                </Button>
                             </div>
                         </div>
 
-                        <div className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-                            <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Live Summary (Read-only)</h4>
-                            <pre className="text-[10px] md:text-xs font-mono text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed">
-                                {getWeeklyHeader(startOfWeek(targetDate, { weekStartsOn: 1 }), endOfWeek(targetDate, { weekStartsOn: 1 }))}
-                                {"\n\n"}
-                                {getDailyCommentsAnchor()}
-                                {"\n"}
-                                {liveSummary}
-                            </pre>
-                        </div>
+                        <div className="space-y-4">
+                            <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <div className="flex flex-col gap-1.5 w-full md:w-1/2">
+                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">部門フィルタ</Label>
+                                    <select
+                                        className="w-full bg-input-bg border border-border rounded-lg px-3 py-2 text-sm text-main-text outline-none focus:ring-2 focus:ring-primary/50"
+                                        value={filterDeptId}
+                                        onChange={e => setFilterDeptId(e.target.value)}
+                                    >
+                                        <option value="all">全て</option>
+                                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
 
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Editorial Notes (Editable/Saved)</h4>
                             <textarea
-                                className="w-full min-h-[400px] bg-input-bg border border-border rounded-lg p-4 text-xs font-mono text-main-text focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all resize-y"
-                                data-theme-role="inputBg"
-                                style={{ resize: 'vertical' }}
                                 value={editorialText}
-                                onChange={e => saveEditorialText(e.target.value)}
-                                placeholder="ここに追加コメントや振り返りを入力..."
+                                onChange={(e) => saveEditorialText(e.target.value)}
+                                className="w-full h-[500px] p-6 bg-surface border-2 border-border rounded-2xl text-sm leading-relaxed focus:ring-2 focus:ring-primary outline-none font-['Zen_Maru_Gothic'] shadow-inner"
+                                placeholder="サマリーブロックから項目を追加するか、自由に記述してください..."
                             />
                         </div>
                     </div>
                 </Card>
             )}
-
             <p className="text-xs text-center text-slate-400 mt-8">
-                ※ グラフは選択期間の完了済みログを集計しています
+                ※ グラフやサマリーは選択期間の完了済みログを集計しています
             </p>
+
+            {selectedMetric && (
+                <MetricDetailModal
+                    metricName={selectedMetric.name}
+                    unit={selectedMetric.unit}
+                    entries={selectedMetric.entries}
+                    totalDurationSec={selectedMetric.totalDurationSec}
+                    onClose={() => setSelectedMetric(null)}
+                    onInsertAggregate={() => {
+                        const mStats = stats.metricStats.find((ms: any) => ms.name === selectedMetric.name);
+                        if (mStats) {
+                            setPendingMetric({
+                                name: mStats.name,
+                                unit: mStats.unit,
+                                sum: mStats.sum,
+                                count: mStats.count,
+                                avg: mStats.avg,
+                                median: mStats.median,
+                                totalDurationSec: mStats.totalDurationSec
+                            });
+                        }
+                    }}
+                    onEditEntry={(id: string) => {
+                        setEditingLogId(id);
+                        setSelectedMetric(null);
+                    }}
+                />
+            )}
+
+            {pendingMetric && (
+                <MetricInsertionOptionsModal
+                    metric={pendingMetric}
+                    onClose={() => setPendingMetric(null)}
+                    onConfirm={(options) => {
+                        const lines: string[] = [];
+                        if (options.sum) lines.push(`・合計: ${pendingMetric.sum}${pendingMetric.unit}`);
+                        if (options.count) lines.push(`・件数: ${pendingMetric.count}件`);
+                        if (options.avg) lines.push(`・平均: ${pendingMetric.avg.toFixed(1)}${pendingMetric.unit}`);
+                        if (options.median) lines.push(`・中央値: ${pendingMetric.median.toFixed(1)}${pendingMetric.unit}`);
+
+                        // Analysis metrics
+                        const totalMinutes = pendingMetric.totalDurationSec ? pendingMetric.totalDurationSec / 60 : 0;
+                        if (options.totalTime && pendingMetric.totalDurationSec) {
+                            lines.push(`　作業時間合計：${Math.round(totalMinutes)}分`);
+                        }
+                        if (options.density && totalMinutes > 0) {
+                            const density = Math.round((pendingMetric.sum / totalMinutes) * 60);
+                            lines.push(`　単位1／時間：${density.toLocaleString()}${pendingMetric.unit}／時間`);
+                        }
+                        if (options.weight && pendingMetric.sum > 0) {
+                            const weight = totalMinutes / pendingMetric.sum;
+                            const weightStr = weight < 0.01 ? weight.toFixed(5) : weight < 1 ? weight.toFixed(3) : weight.toFixed(1);
+                            lines.push(`　時間／単位1：${weightStr}分／${pendingMetric.unit}`);
+                        }
+
+                        if (lines.length > 0) {
+                            appendToEditorial(`【メトリクス：${pendingMetric.name}】\n${lines.join('\n')}`);
+                        }
+                        setPendingMetric(null);
+                    }}
+                />
+            )}
+
+            {editingLogId && (
+                <EditLogModal
+                    log={fetchedLogs!.find(l => l.id === editingLogId)!}
+                    onClose={() => setEditingLogId(null)}
+                />
+            )}
         </div>
     );
 };
-
