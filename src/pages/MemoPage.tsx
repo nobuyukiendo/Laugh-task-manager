@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useNavigate } from 'react-router-dom';
 import { db, MemoCard } from '../db';
 import { motion } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
-import { Plus, Trash2, Edit2, Calendar, CheckSquare, GripVertical, Check, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Calendar, CheckSquare, GripVertical, Check, X, FileText, ChevronRight } from 'lucide-react';
 import { useMaster } from '../contexts/MasterContext';
 import { SmartDetailInput } from '../components/SmartDetailInput';
 import {
@@ -212,6 +213,9 @@ export const MemoPage: React.FC = () => {
         saveToMaster: false
     });
 
+    const [isDailyMemoModalOpen, setIsDailyMemoModalOpen] = useState(false);
+    const navigate = useNavigate();
+
     // Master Data for Taskify
     const masterContext = useMaster();
     const { departments, workTypes } = masterContext;
@@ -362,13 +366,23 @@ export const MemoPage: React.FC = () => {
                 >
                     メモ
                 </h1>
-                <button
-                    onClick={() => { setEditingMemo(null); setIsModalOpen(true); }}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl shadow-lg hover:shadow-cyan-500/20 transition-all font-medium"
-                >
-                    <Plus size={20} />
-                    新規メモ
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setIsDailyMemoModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-slate-600 dark:text-slate-300 rounded-xl shadow-sm hover:shadow-md transition-all font-medium"
+                        data-theme-role="surface"
+                    >
+                        <FileText size={18} />
+                        日次メモを確認
+                    </button>
+                    <button
+                        onClick={() => { setEditingMemo(null); setIsModalOpen(true); }}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl shadow-lg hover:shadow-cyan-500/20 transition-all font-medium"
+                    >
+                        <Plus size={20} />
+                        新規メモ
+                    </button>
+                </div>
             </div>
 
             <DndContext
@@ -514,6 +528,63 @@ export const MemoPage: React.FC = () => {
                         <div className="flex justify-end gap-3 mt-8 pb-2">
                             <button onClick={() => setIsTaskifyModalOpen(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">キャンセル</button>
                             <button onClick={handleTaskify} className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-medium shadow-md hover:shadow-green-500/25 transition-all">追加する</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Daily Comments Modal */}
+            {isDailyMemoModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-surface border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[85vh] flex flex-col" data-theme-role="surface">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-main-text flex items-center gap-2">
+                                <FileText size={20} className="text-cyan-500" />
+                                日次メモ一覧（今日の一言）
+                            </h2>
+                            <button onClick={() => setIsDailyMemoModalOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                            {(() => {
+                                const savedCommentsValue = localStorage.getItem('dailyComments');
+                                const savedComments = JSON.parse(savedCommentsValue || '{}');
+                                const sortedDates = Object.keys(savedComments).sort((a, b) => b.localeCompare(a));
+
+                                if (sortedDates.length === 0) {
+                                    return (
+                                        <div className="text-center py-10 text-sub-text">
+                                            保存された日次メモはありません。
+                                        </div>
+                                    );
+                                }
+
+                                return sortedDates.map(dateStr => (
+                                    <button
+                                        key={dateStr}
+                                        onClick={() => {
+                                            navigate('/dashboard', { state: { targetDate: dateStr, period: 'day' } });
+                                        }}
+                                        className="w-full text-left p-4 rounded-xl border border-border bg-slate-50 dark:bg-slate-900/40 hover:border-cyan-500/50 hover:bg-cyan-50/10 transition-all group"
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div className="space-y-1">
+                                                <div className="text-xs font-black text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
+                                                    <Calendar size={12} />
+                                                    {dateStr}
+                                                </div>
+                                                <div className="text-sm text-main-text line-clamp-2">
+                                                    {savedComments[dateStr]}
+                                                </div>
+                                            </div>
+                                            <ChevronRight size={16} className="text-slate-300 group-hover:text-cyan-500 transition-colors mt-1" />
+                                        </div>
+                                    </button>
+                                ));
+                            })()}
+                        </div>
+                        <div className="mt-6 pt-4 border-t border-border text-center">
+                            <p className="text-[10px] text-sub-text">項目をクリックすると該当日次の集計画面へ移動します</p>
                         </div>
                     </div>
                 </div>

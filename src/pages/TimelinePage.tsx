@@ -6,7 +6,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { Card, Button, Input, Select, Label } from '../components/ui';
 import { format, parse } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { ChevronLeft, ChevronRight, Trash2, Edit2, UploadCloud, CalendarCheck, Plus, X, Book, History as HistoryIcon, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit2, UploadCloud, CalendarCheck, Plus, X, Book, History as HistoryIcon, AlertCircle, Calendar } from 'lucide-react';
 import { EditLogModal } from '../components/EditLogModal';
 import { useGoogleCalendar, ImportEvent } from '../hooks/useGoogleCalendar';
 import { ImportGCalModal } from '../components/ImportGCalModal';
@@ -31,6 +31,7 @@ export const TimelinePage: React.FC = () => {
         addDetailTask, addRecentDetailTask,
         addMetricMaster, addMetricHistory
     } = useMaster();
+    const dateInputRef = React.useRef<HTMLInputElement>(null);
 
     // Date Navigation
     const [viewDate, setViewDate] = useState(new Date());
@@ -114,6 +115,15 @@ export const TimelinePage: React.FC = () => {
         setSyncErrors({});
         setMissingEvents([]);
         setSyncProgress({ current: 0, total: 0, status: 'idle' });
+    };
+
+    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.value) {
+            setViewDate(new Date(e.target.value));
+            setSyncErrors({});
+            setMissingEvents([]);
+            setSyncProgress({ current: 0, total: 0, status: 'idle' });
+        }
     };
 
     const handleBulkSync = async () => {
@@ -341,7 +351,23 @@ export const TimelinePage: React.FC = () => {
 
                 <div style={{ backgroundColor: isDark ? '#1e293b' : '#e2e8f0' }} className="flex items-center gap-2 p-1 rounded-lg">
                     <Button size="sm" variant="ghost" onClick={() => changeDate(-1)}><ChevronLeft size={16} /></Button>
-                    <span style={{ color: isDark ? '#e2e8f0' : '#334155' }} className="text-sm font-mono font-medium px-2">{dateKey}</span>
+                    <div className="flex items-center gap-1 group relative">
+                        <span style={{ color: isDark ? '#e2e8f0' : '#334155' }} className="text-sm font-mono font-medium px-2">{dateKey}</span>
+                        <input
+                            type="date"
+                            ref={dateInputRef}
+                            value={dateKey}
+                            onChange={handleDateChange}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full p-0"
+                            style={{ colorScheme: isDark ? 'dark' : 'light' }}
+                        />
+                        <button
+                            onClick={() => dateInputRef.current?.showPicker?.()}
+                            className="p-1.5 text-slate-400 hover:text-cyan-500 rounded-md transition-colors"
+                        >
+                            <Calendar size={14} />
+                        </button>
+                    </div>
                     <Button size="sm" variant="ghost" onClick={() => changeDate(1)}><ChevronRight size={16} /></Button>
                 </div>
             </div>

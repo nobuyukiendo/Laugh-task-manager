@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Card, Button, Label } from '../components/ui';
 // import { useSettings } from '../contexts/SettingsContext';
@@ -101,6 +102,7 @@ const formatDuration = (sec: number) => {
 export const DashboardPage: React.FC = () => {
     const { departments, workTypes, detailTasks } = useMaster();
     const { activeThemeId } = useTheme();
+    const location = useLocation();
 
     // Period State
     const [period, setPeriod] = useState<'day' | 'week' | 'month'>(() => {
@@ -133,6 +135,7 @@ export const DashboardPage: React.FC = () => {
         median: number,
         totalDurationSec?: number
     } | null>(null);
+    const [pendingMemos, setPendingMemos] = useState<Array<{ date: string, memo: string }> | null>(null);
     const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
     const MetricInsertionOptionsModal: React.FC<{
@@ -188,10 +191,88 @@ export const DashboardPage: React.FC = () => {
                                 </label>
                             ))}
                         </div>
+
+                        {/* Preview Block */}
+                        {(() => {
+                            const lines: string[] = [];
+                            if (options.sum) lines.push(`・合計: ${metric.sum}${metric.unit}`);
+                            if (options.count) lines.push(`・件数: ${metric.count}件`);
+                            if (options.avg) lines.push(`・平均: ${metric.avg.toFixed(1)}${metric.unit}`);
+                            if (options.median) lines.push(`・中央値: ${metric.median.toFixed(1)}${metric.unit}`);
+
+                            if (options.totalTime && metric.totalDurationSec) {
+                                lines.push(`　作業時間合計：${Math.round(totalMinutes)}分`);
+                            }
+                            if (options.density && totalMinutes > 0) {
+                                const density = Math.round((metric.sum / totalMinutes) * 60);
+                                lines.push(`　単位1／時間：${density.toLocaleString()}${metric.unit}／時間`);
+                            }
+                            if (options.weight && metric.sum > 0) {
+                                const weight = totalMinutes / metric.sum;
+                                const weightStr = weight < 0.01 ? weight.toFixed(5) : weight < 1 ? weight.toFixed(3) : weight.toFixed(1);
+                                lines.push(`　時間／単位1：${weightStr}分／${metric.unit}`);
+                            }
+
+                            if (lines.length === 0) return null;
+
+                            return (
+                                <div className="p-4 bg-slate-900/5 dark:bg-slate-50/5 rounded-xl border border-dashed border-border">
+                                    <div className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">挿入テキストのプレビュー</div>
+                                    <pre className="text-[10px] text-main-text font-mono leading-relaxed bg-white/50 dark:bg-slate-900/50 p-2 rounded">
+                                        {`【メトリクス：${metric.name}】\n${lines.join('\n')}`}
+                                    </pre>
+                                </div>
+                            );
+                        })()}
                     </div>
                     <div className="p-6 border-t border-border flex gap-3">
                         <Button variant="ghost" className="flex-1" onClick={onClose}>キャンセル</Button>
                         <Button className="flex-1 shadow-cyan-500/20" onClick={() => onConfirm(options)}>挿入する</Button>
+                    </div>
+                </Card>
+            </div>
+        );
+    };
+
+    const DailyMemoSelectionModal: React.FC<{
+        memos: Array<{ date: string, memo: string }>;
+        onClose: () => void;
+        onConfirm: (selectedDates: string[]) => void;
+    }> = ({ memos, onClose, onConfirm }) => {
+        const [selected, setSelected] = useState<string[]>(memos.map(m => m.date));
+
+        return (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <Card className="w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                    <div className="p-6 border-b border-border">
+                        <h3 className="text-lg font-bold text-main-text flex items-center gap-2">
+                            <FileText size={18} className="text-purple-500" />
+                            挿入するメモを選択
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1">選択した日のメモを週報に挿入します</p>
+                    </div>
+                    <div className="p-4 max-h-[40vh] overflow-y-auto space-y-2">
+                        {memos.map(m => (
+                            <label key={m.date} className="flex items-start gap-3 p-3 rounded-xl border border-border bg-slate-50 dark:bg-slate-900/50 cursor-pointer hover:border-purple-500/50 transition-all">
+                                <input
+                                    type="checkbox"
+                                    className="mt-1 w-4 h-4 rounded border-slate-300 text-purple-500 focus:ring-purple-500"
+                                    checked={selected.includes(m.date)}
+                                    onChange={e => {
+                                        if (e.target.checked) setSelected([...selected, m.date]);
+                                        else setSelected(selected.filter(s => s !== m.date));
+                                    }}
+                                />
+                                <div className="space-y-0.5">
+                                    <div className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-tight">{m.date}</div>
+                                    <div className="text-xs text-main-text line-clamp-2 leading-relaxed">{m.memo}</div>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                    <div className="p-6 border-t border-border flex gap-3">
+                        <Button variant="ghost" className="flex-1" onClick={onClose}>キャンセル</Button>
+                        <Button className="flex-1 bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/20" onClick={() => onConfirm(selected)}>挿入する</Button>
                     </div>
                 </Card>
             </div>
@@ -227,6 +308,21 @@ export const DashboardPage: React.FC = () => {
     }, [period]);
 
     const [targetDate, setTargetDate] = useState(new Date());
+
+    // Handle incoming state from navigation (e.g., from MemoPage)
+    useEffect(() => {
+        const state = location.state as { targetDate?: string, period?: 'day' | 'week' | 'month' } | null;
+        if (state) {
+            if (state.targetDate) {
+                setTargetDate(new Date(state.targetDate));
+            }
+            if (state.period) {
+                setPeriod(state.period);
+            }
+            // Clear state after reading to prevent re-applying on every render
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state]);
 
     // Load Data
     // Live Data Query
@@ -404,23 +500,23 @@ export const DashboardPage: React.FC = () => {
 
     const insertDailyComments = () => {
         const savedComments = JSON.parse(localStorage.getItem('dailyComments') || '{}');
-        const lines: string[] = [];
+        const memos: Array<{ date: string, memo: string }> = [];
         const start = startOfWeek(targetDate, { weekStartsOn: 1 });
         for (let i = 0; i < 7; i++) {
             const d = new Date(start);
             d.setDate(d.getDate() + i);
             const dateKey = format(d, 'yyyy-MM-dd');
             if (savedComments[dateKey]) {
-                lines.push(`・${format(d, 'M/d')}: ${savedComments[dateKey]}`);
+                memos.push({ date: dateKey, memo: savedComments[dateKey] });
             }
         }
 
-        if (lines.length === 0) {
+        if (memos.length === 0) {
             alert('対象週の日次メモが見つかりませんでした。');
             return;
         }
 
-        insertBelowSeparator(`【日次メモ】\n${lines.join('\n')}`);
+        setPendingMemos(memos);
     };
 
     const normalizeTaskString = (s: string) => {
@@ -1189,7 +1285,7 @@ export const DashboardPage: React.FC = () => {
                     totalDurationSec={selectedMetric.totalDurationSec}
                     onClose={() => setSelectedMetric(null)}
                     onInsertAggregate={() => {
-                        const mStats = stats.metricStats.find((ms: any) => ms.name === selectedMetric.name);
+                        const mStats = stats?.metricStats?.find((ms: any) => ms.name === selectedMetric.name);
                         if (mStats) {
                             setPendingMetric({
                                 name: mStats.name,
@@ -1211,7 +1307,7 @@ export const DashboardPage: React.FC = () => {
 
             {pendingMetric && (
                 <MetricInsertionOptionsModal
-                    metric={pendingMetric}
+                    metric={pendingMetric!}
                     onClose={() => setPendingMetric(null)}
                     onConfirm={(options) => {
                         const lines: string[] = [];
@@ -1239,6 +1335,30 @@ export const DashboardPage: React.FC = () => {
                             appendToEditorial(`【メトリクス：${pendingMetric.name}】\n${lines.join('\n')}`);
                         }
                         setPendingMetric(null);
+                    }}
+                />
+            )}
+
+            {pendingMemos && (
+                <DailyMemoSelectionModal
+                    memos={pendingMemos!}
+                    onClose={() => setPendingMemos(null)}
+                    onConfirm={(selectedDates) => {
+                        const savedComments = JSON.parse(localStorage.getItem('dailyComments') || '{}');
+                        const lines: string[] = [];
+
+                        // Sort selected dates
+                        [...selectedDates].sort().forEach(dateStr => {
+                            if (savedComments[dateStr]) {
+                                const d = new Date(dateStr);
+                                lines.push(`・${format(d, 'M/d')}: ${savedComments[dateStr]}`);
+                            }
+                        });
+
+                        if (lines.length > 0) {
+                            insertBelowSeparator(`【日次メモ】\n${lines.join('\n')}`);
+                        }
+                        setPendingMemos(null);
                     }}
                 />
             )}
