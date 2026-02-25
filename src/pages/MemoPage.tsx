@@ -93,7 +93,6 @@ const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDel
             ref={setNodeRef}
             style={style}
             layoutId={memo.id}
-            onClick={() => onEdit(memo)}
             className="bg-surface rounded-2xl shadow-sm border border-border p-4 hover:shadow-md transition-all relative group flex flex-col h-full"
             data-theme-role="surface"
         >
@@ -143,6 +142,7 @@ const SortableMemoItem: React.FC<SortableMemoItemProps> = ({ memo, onEdit, onDel
                             if (e.key === 'Enter' && e.ctrlKey) handleQuickSave();
                             if (e.key === 'Escape') handleCancelQuickEdit();
                         }}
+                        onBlur={handleQuickSave}
                     />
                     <div className="flex justify-end gap-2">
                         <button onClick={handleCancelQuickEdit} className="p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
