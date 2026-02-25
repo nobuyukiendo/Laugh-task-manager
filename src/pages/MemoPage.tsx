@@ -493,7 +493,7 @@ export const MemoPage: React.FC = () => {
                                     data-theme-role="inputBg"
                                 >
                                     <option value="">選択してください</option>
-                                    {departments.map(d => (
+                                    {departments.filter(d => d.enabled).map(d => (
                                         <option key={d.id} value={d.id}>{d.name}</option>
                                     ))}
                                 </select>
@@ -507,7 +507,7 @@ export const MemoPage: React.FC = () => {
                                     data-theme-role="inputBg"
                                 >
                                     <option value="">選択してください</option>
-                                    {workTypes.map(w => (
+                                    {workTypes.filter(w => w.enabled).map(w => (
                                         <option key={w.id} value={w.id}>{w.name}</option>
                                     ))}
                                 </select>

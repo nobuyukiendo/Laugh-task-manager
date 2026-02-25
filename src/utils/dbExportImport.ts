@@ -29,6 +29,8 @@ const TABLE_NAMES = [
     'linkIcons',
     'memoCards',
     'scheduleCards',
+    'metricMasters',
+    'metricHistories',
 ];
 
 export const exportAllData = async (): Promise<string> => {
@@ -61,7 +63,9 @@ export const exportAllData = async (): Promise<string> => {
         'links_form_expanded',
         'app_theme',
         'position_order',
-        'last_selected_position'
+        'last_selected_position',
+        'theme_activeId',
+        'theme_customData'
     ];
 
     for (let i = 0; i < localStorage.length; i++) {

@@ -1130,7 +1130,7 @@ export const DashboardPage: React.FC = () => {
                                 onChange={e => setFilterDeptId(e.target.value)}
                             >
                                 <option value="all">全て</option>
-                                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                {departments.filter(d => d.enabled).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                             </select>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1141,7 +1141,7 @@ export const DashboardPage: React.FC = () => {
                                 onChange={e => setFilterWorkTypeId(e.target.value)}
                             >
                                 <option value="all">全て</option>
-                                {workTypes.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                {workTypes.filter(w => w.enabled).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                                 <option value={NO_WT_ID}>作業種別なし</option>
                             </select>
                         </div>
@@ -1258,7 +1258,7 @@ export const DashboardPage: React.FC = () => {
                                         onChange={e => setFilterDeptId(e.target.value)}
                                     >
                                         <option value="all">全て</option>
-                                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                        {departments.filter(d => d.enabled).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                     </select>
                                 </div>
                             </div>
