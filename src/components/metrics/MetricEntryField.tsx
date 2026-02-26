@@ -16,6 +16,18 @@ export const MetricEntryField: React.FC<MetricEntryFieldProps> = ({ metric, onCh
     const historySelectRef = useRef<HTMLSelectElement>(null);
     const masterSelectRef = useRef<HTMLSelectElement>(null);
 
+    const [localName, setLocalName] = React.useState(metric.name);
+    const [localUnit, setLocalUnit] = React.useState(metric.unit);
+
+    // Synchronize local state when prop changes (e.g. from context/db)
+    React.useEffect(() => {
+        setLocalName(metric.name);
+    }, [metric.name]);
+
+    React.useEffect(() => {
+        setLocalUnit(metric.unit);
+    }, [metric.unit]);
+
     const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const raw = e.target.value;
         // Convert full-width to half-width
@@ -24,7 +36,16 @@ export const MetricEntryField: React.FC<MetricEntryFieldProps> = ({ metric, onCh
         onChange({ ...metric, value: isNaN(numValue) ? 0 : numValue });
     };
 
+    const handleBlur = () => {
+        // Synchronize to parent (DB) only on blur to avoid IME interference
+        if (localName !== metric.name || localUnit !== metric.unit) {
+            onChange({ ...metric, name: localName, unit: localUnit });
+        }
+    };
+
     const handleNameSelect = (name: string, unit: string) => {
+        setLocalName(name);
+        setLocalUnit(unit);
         onChange({ ...metric, name, unit });
     };
 
@@ -63,8 +84,9 @@ export const MetricEntryField: React.FC<MetricEntryFieldProps> = ({ metric, onCh
                         <div className="relative flex-1 group">
                             <Input
                                 placeholder="項目名を入力"
-                                value={metric.name}
-                                onChange={(e) => onChange({ ...metric, name: e.target.value })}
+                                value={localName}
+                                onChange={(e) => setLocalName(e.target.value)}
+                                onBlur={handleBlur}
                                 onDoubleClick={() => historySelectRef.current?.showPicker()}
                                 className="bg-input-bg text-input-text border-border rounded-xl"
                                 data-theme-role="inputBg"
@@ -144,8 +166,9 @@ export const MetricEntryField: React.FC<MetricEntryFieldProps> = ({ metric, onCh
                         <span className="text-[10px] font-bold text-sub-text mb-1 block">単位</span>
                         <Input
                             placeholder="単位を入力"
-                            value={metric.unit}
-                            onChange={(e) => onChange({ ...metric, unit: e.target.value })}
+                            value={localUnit}
+                            onChange={(e) => setLocalUnit(e.target.value)}
+                            onBlur={handleBlur}
                             className="bg-input-bg text-input-text border-border rounded-xl"
                             data-theme-role="inputBg"
                         />
