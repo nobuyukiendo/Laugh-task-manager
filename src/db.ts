@@ -144,6 +144,33 @@ export interface MetricHistory {
     lastUsedAt: number;
 }
 
+// 日次メトリクス（タスクに紐づかない数値記録）
+export interface DailyMetric {
+    id: string;
+    dateKey: string; // YYYY-MM-DD
+    entries: MetricEntry[];
+    createdAt: number;
+    updatedAt: number;
+}
+
+// クロス分析計算式マスタ
+export interface CrossFormulaVariable {
+    varId: string;   // 'A', 'B', 'C' ...
+    label: string;   // 表示名（例: 'クリック数'）
+    metricName: string; // マッピング先メトリクス名（'__time__' = 作業時間）
+}
+
+export interface CrossFormula {
+    id: string;
+    name: string;       // 計算式名（例: 'CTR'）
+    resultUnit: string; // 結果単位（例: '％'）
+    expression: string; // 式文字列（例: 'B/A*100'）
+    variables: CrossFormulaVariable[];
+    description?: string;
+    order: number;
+    createdAt: number;
+}
+
 
 class AppDatabase extends Dexie {
     departments!: Table<Department, string>;
@@ -162,6 +189,8 @@ class AppDatabase extends Dexie {
     scheduleCards!: Table<ScheduleCard, string>;
     metricMasters!: Table<MetricMaster, string>;
     metricHistories!: Table<MetricHistory, string>;
+    dailyMetrics!: Table<DailyMetric, string>;
+    crossFormulas!: Table<CrossFormula, string>;
 
     constructor() {
         super('TimeTrackerDB');
@@ -220,6 +249,15 @@ class AppDatabase extends Dexie {
             metricMasters: 'id, &name, order, enabled',
             metricHistories: 'id, &name, lastUsedAt',
             workLogs: 'id, status, dateKey, departmentId, workTypeId, startAt, endAt' // metrics index is not needed for now, butDexie needs re-declaration
+        });
+
+        this.version(13).stores({
+            dailyMetrics: 'id, dateKey, createdAt',
+            crossFormulas: 'id, name, createdAt'
+        });
+
+        this.version(14).stores({
+            crossFormulas: 'id, name, order, createdAt'
         });
     }
 }

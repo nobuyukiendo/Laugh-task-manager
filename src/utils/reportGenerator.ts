@@ -1,4 +1,4 @@
-import { WorkLog, Department, WorkType, DetailTask } from '../db';
+import { WorkLog, Department, WorkType, DetailTask, DailyMetric } from '../db';
 import { format } from 'date-fns';
 
 interface ReportData {
@@ -6,6 +6,7 @@ interface ReportData {
     departments: Department[];
     workTypes: WorkType[];
     detailTasks: DetailTask[];
+    dailyMetrics?: DailyMetric[];
     startDate: Date;
     endDate: Date;
 }
@@ -39,7 +40,7 @@ export interface SummaryBlocks {
     metrics: string;
 }
 
-export const getSummaryBlocks = ({ logs, departments, workTypes, detailTasks }: Omit<ReportData, 'startDate' | 'endDate'>, periodLabel: string = '週'): SummaryBlocks => {
+export const getSummaryBlocks = ({ logs, departments, workTypes, detailTasks, dailyMetrics }: Omit<ReportData, 'startDate' | 'endDate'>, periodLabel: string = '週'): SummaryBlocks => {
     // Helpers to resolve names
     const getDeptName = (id: string) => departments.find(d => d.id === id)?.name || '不明な部門';
     const getWTName = (id: string) => workTypes.find(w => w.id === id)?.name || '未分類';
@@ -110,12 +111,32 @@ export const getSummaryBlocks = ({ logs, departments, workTypes, detailTasks }: 
         return getMetricSummary(name, group.unit, group.values);
     });
 
+    // 4. Daily Metrics Aggregation
+    const dailyMetricGroups: Record<string, { total: number, count: number, unit: string }> = {};
+    if (dailyMetrics) {
+        dailyMetrics.forEach((dm: DailyMetric) => {
+            dm.entries.forEach(e => {
+                const key = `${e.name}|${e.unit}`;
+                if (!dailyMetricGroups[key]) dailyMetricGroups[key] = { total: 0, count: 0, unit: e.unit };
+                dailyMetricGroups[key].total += e.value;
+                dailyMetricGroups[key].count += 1;
+            });
+        });
+    }
+
+    const dailyMetricLines = Object.entries(dailyMetricGroups).map(([key, group]) => {
+        const [name] = key.split('|');
+        return `・[日次] ${name}: 合計 ${parseFloat(group.total.toFixed(2))}${group.unit} (平均 ${(group.total / group.count).toFixed(1)}${group.unit} / ${group.count}日)`;
+    });
+
+    const allMetricLines = [...metricLines, ...dailyMetricLines];
+
     return {
         total: `【${periodLabel}合計】 ${totalMinutes} 分`,
         departments: `【部門別】\n${formatMap(deptMap)}`,
         workTypes: `【作業種別】\n${formatMap(wtMap)}`,
         details: `【詳細作業 (Top 8)】\n${formatMap(dtMap, 8)}`,
-        metrics: `【メトリクス】\n${metricLines.length > 0 ? metricLines.join('\n') : '(なし)'}`
+        metrics: `【メトリクス】\n${allMetricLines.length > 0 ? allMetricLines.join('\n') : '(なし)'}`
     };
 };
 

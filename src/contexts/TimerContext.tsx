@@ -8,7 +8,7 @@ import { useSettings } from './SettingsContext';
 interface TimerContextType {
     activeLog: WorkLog | undefined;
     lastFinishedLog: WorkLog | null;
-    startTimer: (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note: string, metrics: any[]) => Promise<void>;
+    startTimer: (deptId: string, workTypeId: string, detailIds: string[], detailNames: string[], note?: string, metrics?: any[]) => Promise<void>;
     stopTimer: () => Promise<void>;
     cancelTimer: () => Promise<void>;
     updateActiveNote: (note: string) => Promise<void>;

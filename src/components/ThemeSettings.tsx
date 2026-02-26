@@ -5,8 +5,7 @@ import { Palette, Check } from 'lucide-react';
 export const ThemeSettings: React.FC = () => {
     const {
         activeThemeId,
-        setTheme,
-        customThemeData
+        setTheme
     } = useTheme();
 
     const themes: { id: ThemeType; label: string; color: string }[] = [

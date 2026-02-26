@@ -5,7 +5,7 @@ import { db, ScheduleCard } from '../db';
 import { useTimer } from '../contexts/TimerContext';
 import { useMaster } from '../contexts/MasterContext';
 import { format } from 'date-fns';
-import { Play, Square, RotateCcw, Trash2, AlertTriangle, Filter, Edit2, Lock, Unlock, GripVertical, Layout, CheckSquare } from 'lucide-react';
+import { Play, Square, RotateCcw, Trash2, AlertTriangle, Filter, Edit2, Lock, Unlock, GripVertical, Layout } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { SmartDetailInput } from '../components/SmartDetailInput';
 import {

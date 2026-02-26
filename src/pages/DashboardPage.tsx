@@ -28,6 +28,8 @@ import {
 } from '../utils/reportGenerator';
 import { MetricDetailModal } from '../components/MetricDetailModal';
 import { EditLogModal } from '../components/EditLogModal';
+import { DailyMetricModal } from '../components/DailyMetricModal';
+import { CrossAnalysisModal, AvailableMetric } from '../components/CrossAnalysisModal';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -137,11 +139,13 @@ export const DashboardPage: React.FC = () => {
     } | null>(null);
     const [pendingMemos, setPendingMemos] = useState<Array<{ date: string, memo: string }> | null>(null);
     const [editingLogId, setEditingLogId] = useState<string | null>(null);
+    const [selectedDailyDate, setSelectedDailyDate] = useState<string | null>(null);
+    const [showCrossAnalysis, setShowCrossAnalysis] = useState(false);
 
     const MetricInsertionOptionsModal: React.FC<{
         metric: { name: string, unit: string, sum: number, count: number, avg: number, median: number, totalDurationSec?: number };
         onClose: () => void;
-        onConfirm: (options: { sum: boolean, count: boolean, avg: boolean, median: boolean, totalTime: boolean, density: boolean, weight: boolean }) => void;
+        onConfirm: (text: string) => void;
     }> = ({ metric, onClose, onConfirm }) => {
         const [options, setOptions] = useState({ sum: true, count: true, avg: true, median: true, totalTime: false, density: false, weight: false });
 
@@ -155,6 +159,36 @@ export const DashboardPage: React.FC = () => {
             if (val < 1) return val.toFixed(3);
             return val.toFixed(1);
         };
+
+        const defaultText = useMemo(() => {
+            const lines: string[] = [];
+            if (options.sum) lines.push(`・合計: ${metric.sum}${metric.unit}`);
+            if (options.count) lines.push(`・件数: ${metric.count}件`);
+            if (options.avg && metric.avg !== undefined) lines.push(`・平均: ${metric.avg.toFixed(1)}${metric.unit}`);
+            if (options.median && metric.median !== undefined) lines.push(`・中央値: ${metric.median.toFixed(1)}${metric.unit}`);
+
+            if (options.totalTime && metric.totalDurationSec) {
+                lines.push(`　作業時間合計：${Math.round(totalMinutes)}分`);
+            }
+            if (options.density && totalMinutes > 0) {
+                const density = Math.round((metric.sum / totalMinutes) * 60);
+                lines.push(`　単位1／時間：${density.toLocaleString()}${metric.unit}／時間`);
+            }
+            if (options.weight && metric.sum > 0) {
+                const weight = totalMinutes / metric.sum;
+                const weightStr = weight < 0.01 ? weight.toFixed(5) : weight < 1 ? weight.toFixed(3) : weight.toFixed(1);
+                lines.push(`　時間／単位1：${weightStr}分／${metric.unit}`);
+            }
+
+            if (lines.length === 0) return '';
+            return `【メトリクス：${metric.name}】\n${lines.join('\n')}`;
+        }, [options, metric, totalMinutes]);
+
+        const [previewText, setPreviewText] = useState('');
+
+        useEffect(() => {
+            setPreviewText(defaultText);
+        }, [defaultText]);
 
         return (
             <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -171,8 +205,8 @@ export const DashboardPage: React.FC = () => {
                             {[
                                 { id: 'sum', label: '合計', value: `${metric.sum}${metric.unit}`, visible: true },
                                 { id: 'count', label: '件数', value: `${metric.count}件`, visible: true },
-                                { id: 'avg', label: '平均', value: `${metric.avg.toFixed(1)}${metric.unit}`, visible: true },
-                                { id: 'median', label: '中央値', value: `${metric.median.toFixed(1)}${metric.unit}`, visible: true },
+                                { id: 'avg', label: '平均', value: `${metric.avg !== undefined ? metric.avg.toFixed(1) : '-'}${metric.unit}`, visible: metric.avg !== undefined },
+                                { id: 'median', label: '中央値', value: `${metric.median !== undefined ? metric.median.toFixed(1) : '-'}${metric.unit}`, visible: metric.median !== undefined },
                                 { id: 'totalTime', label: '作業時間合計', value: `${Math.round(totalMinutes)}分`, visible: !!metric.totalDurationSec },
                                 { id: 'density', label: '単位1／時間', value: `${Math.round(unitPerHour).toLocaleString()}${metric.unit}／時`, visible: !!metric.totalDurationSec },
                                 { id: 'weight', label: '時間／単位1', value: `${formatWeight(timePerUnit)}分／${metric.unit}`, visible: !!metric.totalDurationSec },
@@ -193,41 +227,18 @@ export const DashboardPage: React.FC = () => {
                         </div>
 
                         {/* Preview Block */}
-                        {(() => {
-                            const lines: string[] = [];
-                            if (options.sum) lines.push(`・合計: ${metric.sum}${metric.unit}`);
-                            if (options.count) lines.push(`・件数: ${metric.count}件`);
-                            if (options.avg) lines.push(`・平均: ${metric.avg.toFixed(1)}${metric.unit}`);
-                            if (options.median) lines.push(`・中央値: ${metric.median.toFixed(1)}${metric.unit}`);
-
-                            if (options.totalTime && metric.totalDurationSec) {
-                                lines.push(`　作業時間合計：${Math.round(totalMinutes)}分`);
-                            }
-                            if (options.density && totalMinutes > 0) {
-                                const density = Math.round((metric.sum / totalMinutes) * 60);
-                                lines.push(`　単位1／時間：${density.toLocaleString()}${metric.unit}／時間`);
-                            }
-                            if (options.weight && metric.sum > 0) {
-                                const weight = totalMinutes / metric.sum;
-                                const weightStr = weight < 0.01 ? weight.toFixed(5) : weight < 1 ? weight.toFixed(3) : weight.toFixed(1);
-                                lines.push(`　時間／単位1：${weightStr}分／${metric.unit}`);
-                            }
-
-                            if (lines.length === 0) return null;
-
-                            return (
-                                <div className="p-4 bg-slate-900/5 dark:bg-slate-50/5 rounded-xl border border-dashed border-border">
-                                    <div className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">挿入テキストのプレビュー</div>
-                                    <pre className="text-[10px] text-main-text font-mono leading-relaxed bg-white/50 dark:bg-slate-900/50 p-2 rounded">
-                                        {`【メトリクス：${metric.name}】\n${lines.join('\n')}`}
-                                    </pre>
-                                </div>
-                            );
-                        })()}
+                        <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+                            <div className="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">挿入テキストのプレビュー</div>
+                            <textarea
+                                className="w-full text-xs p-2 rounded-lg border border-border bg-surface text-main-text focus:outline-none focus:ring-1 focus:ring-cyan-500 min-h-[80px]"
+                                value={previewText}
+                                onChange={e => setPreviewText(e.target.value)}
+                            />
+                        </div>
                     </div>
                     <div className="p-6 border-t border-border flex gap-3">
                         <Button variant="ghost" className="flex-1" onClick={onClose}>キャンセル</Button>
-                        <Button className="flex-1 shadow-cyan-500/20" onClick={() => onConfirm(options)}>挿入する</Button>
+                        <Button className="flex-1 shadow-cyan-500/20" onClick={() => onConfirm(previewText)}>挿入する</Button>
                     </div>
                 </Card>
             </div>
@@ -354,8 +365,89 @@ export const DashboardPage: React.FC = () => {
         return data.filter(l => l.status === 'done');
     }, [targetDate, period]);
 
+    const prevFetchedLogs = useLiveQuery(async () => {
+        let start = 0;
+        let end = 0;
+        let sDate = new Date();
+        let eDate = new Date();
+
+        if (period === 'month') {
+            const currentStart = startOfMonth(targetDate);
+            sDate = new Date(currentStart);
+            sDate.setMonth(sDate.getMonth() - 1);
+            eDate = endOfMonth(sDate);
+        } else if (period === 'week') {
+            const currentStart = startOfWeek(targetDate, { weekStartsOn: 1 });
+            sDate = new Date(currentStart);
+            sDate.setDate(sDate.getDate() - 7);
+            eDate = endOfWeek(sDate, { weekStartsOn: 1 });
+        } else {
+            sDate = new Date(targetDate);
+            sDate.setDate(sDate.getDate() - 1);
+            sDate.setHours(0, 0, 0, 0);
+            eDate = new Date(targetDate);
+            eDate.setDate(eDate.getDate() - 1);
+            eDate.setHours(23, 59, 59, 999);
+        }
+        start = sDate.getTime();
+        end = eDate.getTime();
+        const data = await db.workLogs
+            .where('startAt')
+            .between(start, end, true, true)
+            .toArray();
+
+        return data.filter(l => l.status === 'done');
+    }, [targetDate, period]);
+
     const logs = useMemo(() => fetchedLogs || [], [fetchedLogs]);
+    const prevLogs = useMemo(() => prevFetchedLogs || [], [prevFetchedLogs]);
     const NO_WT_ID = 'no_work_type';
+
+    // 日次メトリクスを期間内で取得（targetDate確定後）
+    const dailyMetricsInRange = useLiveQuery(async () => {
+        let start: string, end: string;
+        if (period === 'day') {
+            const dk = format(targetDate, 'yyyy-MM-dd');
+            start = dk; end = dk;
+        } else if (period === 'week') {
+            const sDate = startOfWeek(targetDate, { weekStartsOn: 1 });
+            const eDate = endOfWeek(sDate, { weekStartsOn: 1 });
+            start = format(sDate, 'yyyy-MM-dd');
+            end = format(eDate, 'yyyy-MM-dd');
+        } else {
+            const sDate = startOfMonth(targetDate);
+            const eDate = endOfMonth(sDate);
+            start = format(sDate, 'yyyy-MM-dd');
+            end = format(eDate, 'yyyy-MM-dd');
+        }
+        return db.dailyMetrics.where('dateKey').between(start, end, true, true).toArray();
+    }, [targetDate, period]) || [];
+
+    const prevDailyMetricsInRange = useLiveQuery(async () => {
+        let start: string, end: string;
+        if (period === 'day') {
+            const sDate = new Date(targetDate);
+            sDate.setDate(sDate.getDate() - 1);
+            const dk = format(sDate, 'yyyy-MM-dd');
+            start = dk; end = dk;
+        } else if (period === 'week') {
+            const currentStart = startOfWeek(targetDate, { weekStartsOn: 1 });
+            const sDate = new Date(currentStart);
+            sDate.setDate(sDate.getDate() - 7);
+            const eDate = endOfWeek(sDate, { weekStartsOn: 1 });
+            start = format(sDate, 'yyyy-MM-dd');
+            end = format(eDate, 'yyyy-MM-dd');
+        } else {
+            const currentStart = startOfMonth(targetDate);
+            const sDate = new Date(currentStart);
+            sDate.setMonth(sDate.getMonth() - 1);
+            const eDate = endOfMonth(sDate);
+            start = format(sDate, 'yyyy-MM-dd');
+            end = format(eDate, 'yyyy-MM-dd');
+        }
+        return db.dailyMetrics.where('dateKey').between(start, end, true, true).toArray();
+    }, [targetDate, period]) || [];
+
 
     // Live Summary Filtering
     const filteredWeeklyLogs = useMemo(() => {
@@ -375,9 +467,10 @@ export const DashboardPage: React.FC = () => {
             logs: filteredWeeklyLogs,
             departments,
             workTypes,
-            detailTasks
+            detailTasks,
+            dailyMetrics: dailyMetricsInRange
         }, period === 'day' ? '日' : period === 'month' ? '月' : '週');
-    }, [filteredWeeklyLogs, departments, workTypes, detailTasks]);
+    }, [filteredWeeklyLogs, departments, workTypes, detailTasks, period, dailyMetricsInRange]);
 
     const insertBelowSeparator = (textToAdd: string) => {
         const separator = '--------------------------------------------------';
@@ -825,6 +918,119 @@ export const DashboardPage: React.FC = () => {
 
     }, [logs, departments, workTypes, detailTasks, activeThemeId, zoomLevel, zoomDeptId, zoomWtId]);
 
+    // クロス分析用 利用可能メトリクスリストを構築
+    const availableMetrics = useMemo<AvailableMetric[]>(() => {
+        const result: AvailableMetric[] = [];
+
+        // --- 当期（Current） ---
+        // タスクメトリクス
+        if (stats?.metricStats) {
+            stats.metricStats.forEach((ms: any) => {
+                result.push({ name: ms.name, unit: ms.unit, total: ms.sum, source: 'task', timeframe: 'current' });
+                // メトリクスごとの作業時間も変数として追加
+                if (ms.totalDurationSec !== undefined && ms.totalDurationSec > 0) {
+                    result.push({
+                        name: `${ms.name} の作業時間`,
+                        unit: '分',
+                        total: Math.round(ms.totalDurationSec / 60),
+                        source: 'time',
+                        timeframe: 'current'
+                    });
+                }
+            });
+        }
+
+        // 日次メトリクス（同名・同単位を合算）
+        if (dailyMetricsInRange.length > 0) {
+            const dailyMap: Record<string, { total: number; unit: string }> = {};
+            dailyMetricsInRange.forEach(dm => {
+                dm.entries.forEach(e => {
+                    const key = `${e.name}|${e.unit}`;
+                    if (!dailyMap[key]) dailyMap[key] = { total: 0, unit: e.unit };
+                    dailyMap[key].total += e.value;
+                });
+            });
+            Object.entries(dailyMap).forEach(([key, v]) => {
+                const name = key.split('|')[0];
+                // 同名のタスクメトリクスが既にある場合は別エントリとして追加しない（重複回避）
+                if (!result.find(r => r.name === name && r.source === 'task' && r.timeframe === 'current')) {
+                    result.push({ name, unit: v.unit, total: v.total, source: 'daily', timeframe: 'current' });
+                }
+            });
+        }
+
+        // --- 前期（Previous） ---
+        const prevMetricGroups: Record<string, { total: number; unit: string; totalDurationSec: number }> = {};
+        prevLogs.forEach(l => {
+            if (l.metrics) {
+                l.metrics.forEach(m => {
+                    const key = `${m.name}|${m.unit}`;
+                    if (!prevMetricGroups[key]) prevMetricGroups[key] = { total: 0, unit: m.unit, totalDurationSec: 0 };
+                    prevMetricGroups[key].total += m.value;
+                    prevMetricGroups[key].totalDurationSec += (l.durationSec || 0);
+                });
+            }
+        });
+
+        Object.entries(prevMetricGroups).forEach(([key, group]) => {
+            const [name] = key.split('|');
+            result.push({ name, unit: group.unit, total: group.total, source: 'task', timeframe: 'previous' });
+            if (group.totalDurationSec > 0) {
+                result.push({
+                    name: `${name} の作業時間`,
+                    unit: '分',
+                    total: Math.round(group.totalDurationSec / 60),
+                    source: 'time',
+                    timeframe: 'previous'
+                });
+            }
+        });
+
+        if (prevDailyMetricsInRange.length > 0) {
+            const prevDailyMap: Record<string, { total: number; unit: string }> = {};
+            prevDailyMetricsInRange.forEach(dm => {
+                dm.entries.forEach(e => {
+                    const key = `${e.name}|${e.unit}`;
+                    if (!prevDailyMap[key]) prevDailyMap[key] = { total: 0, unit: e.unit };
+                    prevDailyMap[key].total += e.value;
+                });
+            });
+            Object.entries(prevDailyMap).forEach(([key, v]) => {
+                const name = key.split('|')[0];
+                if (!result.find(r => r.name === name && r.source === 'task' && r.timeframe === 'previous')) {
+                    result.push({ name, unit: v.unit, total: v.total, source: 'daily', timeframe: 'previous' });
+                }
+            });
+        }
+
+        return result;
+    }, [stats, dailyMetricsInRange, prevLogs, prevDailyMetricsInRange]);
+
+    const dailyMetricStats = useMemo(() => {
+        if (!dailyMetricsInRange || dailyMetricsInRange.length === 0) return [];
+        const map: Record<string, { sum: number; unit: string; count: number; entries: any[] }> = {};
+        dailyMetricsInRange.forEach(dm => {
+            dm.entries.forEach(e => {
+                const key = `${e.name}|${e.unit}`;
+                if (!map[key]) map[key] = { sum: 0, unit: e.unit, count: 0, entries: [] };
+                map[key].sum += e.value;
+                map[key].count += 1;
+                map[key].entries.push({
+                    logId: dm.id,
+                    value: e.value,
+                    unit: e.unit,
+                    timestamp: new Date(dm.dateKey + 'T00:00:00').getTime(),
+                    deptName: '日次記録',
+                    wtName: dm.dateKey
+                });
+            });
+        });
+        return Object.entries(map).map(([key, v]) => {
+            const name = key.split('|')[0];
+            return { name, unit: v.unit, sum: v.sum, count: v.count, avg: v.sum / v.count, entries: v.entries };
+        });
+    }, [dailyMetricsInRange]);
+
     // Chart Data
     const deptData = stats?.chartData || null;
 
@@ -1044,19 +1250,121 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* Metrics Aggregation */}
+            <div className="mb-6">
+                <div className="flex items-center justify-between mb-3 pl-1">
+                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <BarChart2 size={12} /> 日次メトリクス
+                    </h3>
+                    {/* クロス分析ボタンは一番上のメトリクスセクションの右側に常時配置 */}
+                    <Button
+                        variant="ghost"
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 h-auto border border-border hover:border-cyan-500 text-slate-500 hover:text-cyan-600 transition-all bg-white dark:bg-slate-900 shadow-sm"
+                        onClick={() => setShowCrossAnalysis(true)}
+                        disabled={availableMetrics.length === 0}
+                    >
+                        <Calculator size={14} />
+                        クロス分析
+                    </Button>
+                </div>
+
+                {dailyMetricStats.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {dailyMetricStats.map((ms, i) => (
+                            <Card
+                                key={`daily-${i}`}
+                                className="p-4 border-l-4 border-l-lime-400 cursor-pointer hover:shadow-md transition-shadow relative overflow-hidden flex flex-col min-h-[140px]"
+                                onClick={() => setSelectedMetric(ms as any)}
+                            >
+                                <div className="flex justify-between items-start gap-2 mb-3">
+                                    <h4 className="text-sm font-bold text-main-text leading-tight flex-1 line-clamp-2">{ms.name}</h4>
+                                    <span className="shrink-0 text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-bold border border-slate-200 dark:border-slate-700/50">{ms.count}日</span>
+                                </div>
+
+                                <div className="mt-auto space-y-2">
+                                    <div className="flex justify-between items-baseline gap-2">
+                                        <span className="text-[10px] text-slate-500 shrink-0">合計</span>
+                                        <span className="text-lg font-bold text-lime-500 truncate text-right">
+                                            {parseFloat(ms.sum.toFixed(2))}
+                                            <small className="ml-1 text-[10px] text-slate-400 font-normal">{ms.unit}</small>
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-end pt-2 border-t border-slate-100 dark:border-slate-800 gap-2">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-[10px] text-slate-400 truncate">平均 / 日</div>
+                                            <div className="text-xs font-semibold truncate">{ms.avg.toFixed(1)}{ms.unit}</div>
+                                        </div>
+                                        {period === 'week' && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setPendingMetric({
+                                                        name: ms.name,
+                                                        unit: ms.unit,
+                                                        sum: ms.sum,
+                                                        count: ms.count,
+                                                        avg: ms.avg,
+                                                        median: undefined as unknown as number,
+                                                        totalDurationSec: undefined
+                                                    });
+                                                }}
+                                                className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold text-lime-600 dark:text-lime-400 hover:bg-lime-50 dark:hover:bg-lime-900/30 rounded border border-lime-200 dark:border-lime-800 transition-all active:scale-95 bg-lime-50/50 dark:bg-lime-900/20"
+                                                title="週報に挿入"
+                                            >
+                                                <Plus size={10} />
+                                                挿入
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="py-8 text-center bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                        <p className="text-xs text-slate-400">表示可能な日次メトリクスはありません</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Task Metrics (Originally Metrics) */}
+            <div className="mb-3">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    タスクメトリクス
+                </h3>
+            </div>
             {stats?.metricStats && stats.metricStats.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     {stats.metricStats.map((ms: any, i: number) => (
                         <Card
                             key={i}
-                            className="p-4 border-l-4 border-l-cyan-400 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98] relative group/metric"
+                            className="p-4 border-l-4 border-l-cyan-400 cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98] relative group/metric overflow-hidden flex flex-col min-h-[160px]"
                             onClick={() => setSelectedMetric(ms)}
                         >
-                            <div className="flex justify-between items-start mb-2">
-                                <h4 className="text-sm font-bold text-main-text">{ms.name}</h4>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">{ms.count}件</span>
-                                    {period === 'week' && (
+                            <div className="flex justify-between items-start gap-2 mb-3">
+                                <h4 className="text-sm font-bold text-main-text leading-tight flex-1 line-clamp-2">{ms.name}</h4>
+                                <span className="shrink-0 text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-bold border border-slate-200 dark:border-slate-700/50">{ms.count}件</span>
+                            </div>
+
+                            <div className="mt-auto space-y-2">
+                                <div className="flex justify-between items-baseline gap-2">
+                                    <span className="text-[10px] text-slate-500 shrink-0">合計</span>
+                                    <span className="text-lg font-bold text-cyan-500 truncate text-right">
+                                        {ms.sum}
+                                        <small className="ml-1 text-[10px] text-slate-400 font-normal">{ms.unit}</small>
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] text-slate-400 truncate">平均</div>
+                                        <div className="text-xs font-semibold truncate">{ms.avg.toFixed(1)}{ms.unit}</div>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] text-slate-400 truncate">中央値</div>
+                                        <div className="text-xs font-semibold truncate">{ms.median.toFixed(1)}{ms.unit}</div>
+                                    </div>
+                                </div>
+                                {period === 'week' && (
+                                    <div className="flex justify-end pt-1">
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -1070,30 +1378,14 @@ export const DashboardPage: React.FC = () => {
                                                     totalDurationSec: ms.totalDurationSec
                                                 });
                                             }}
-                                            className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 rounded-lg border border-cyan-100 dark:border-cyan-800/50 transition-all active:scale-95"
-                                            title="週報に追加"
+                                            className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-900/30 rounded border border-cyan-200 dark:border-cyan-800 transition-all active:scale-95 bg-cyan-50/50 dark:bg-cyan-900/20"
+                                            title="週報に挿入"
                                         >
-                                            <Plus size={12} />
-                                            週報に追加
+                                            <Plus size={10} />
+                                            挿入
                                         </button>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between items-baseline mb-1">
-                                    <span className="text-[10px] text-slate-500">合計</span>
-                                    <span className="text-lg font-bold text-cyan-500">{ms.sum}<small className="ml-1 text-[10px] text-slate-400 font-normal">{ms.unit}</small></span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                                    <div>
-                                        <div className="text-[10px] text-slate-400">平均</div>
-                                        <div className="text-xs font-semibold">{ms.avg.toFixed(1)}{ms.unit}</div>
                                     </div>
-                                    <div>
-                                        <div className="text-[10px] text-slate-400">中央値</div>
-                                        <div className="text-xs font-semibold">{ms.median.toFixed(1)}{ms.unit}</div>
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </Card>
                     ))}
@@ -1119,7 +1411,7 @@ export const DashboardPage: React.FC = () => {
             <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-4 pl-1">
                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-                        Live Summary Blocks
+                        ライブ集計ブロック
                     </h3>
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
@@ -1285,7 +1577,8 @@ export const DashboardPage: React.FC = () => {
                     totalDurationSec={selectedMetric.totalDurationSec}
                     onClose={() => setSelectedMetric(null)}
                     onInsertAggregate={() => {
-                        const mStats = stats?.metricStats?.find((ms: any) => ms.name === selectedMetric.name);
+                        const mStats = stats?.metricStats?.find((ms: any) => ms.name === selectedMetric.name)
+                            || dailyMetricStats.find((ms: any) => ms.name === selectedMetric.name);
                         if (mStats) {
                             setPendingMetric({
                                 name: mStats.name,
@@ -1299,7 +1592,13 @@ export const DashboardPage: React.FC = () => {
                         }
                     }}
                     onEditEntry={(id: string) => {
-                        setEditingLogId(id);
+                        // Check if this is a daily entry
+                        const entry = selectedMetric.entries.find(e => e.logId === id);
+                        if (entry && entry.deptName === '日次記録') {
+                            setSelectedDailyDate(entry.wtName); // wtName holds the date string
+                        } else {
+                            setEditingLogId(id);
+                        }
                         setSelectedMetric(null);
                     }}
                 />
@@ -1309,30 +1608,9 @@ export const DashboardPage: React.FC = () => {
                 <MetricInsertionOptionsModal
                     metric={pendingMetric!}
                     onClose={() => setPendingMetric(null)}
-                    onConfirm={(options) => {
-                        const lines: string[] = [];
-                        if (options.sum) lines.push(`・合計: ${pendingMetric.sum}${pendingMetric.unit}`);
-                        if (options.count) lines.push(`・件数: ${pendingMetric.count}件`);
-                        if (options.avg) lines.push(`・平均: ${pendingMetric.avg.toFixed(1)}${pendingMetric.unit}`);
-                        if (options.median) lines.push(`・中央値: ${pendingMetric.median.toFixed(1)}${pendingMetric.unit}`);
-
-                        // Analysis metrics
-                        const totalMinutes = pendingMetric.totalDurationSec ? pendingMetric.totalDurationSec / 60 : 0;
-                        if (options.totalTime && pendingMetric.totalDurationSec) {
-                            lines.push(`　作業時間合計：${Math.round(totalMinutes)}分`);
-                        }
-                        if (options.density && totalMinutes > 0) {
-                            const density = Math.round((pendingMetric.sum / totalMinutes) * 60);
-                            lines.push(`　単位1／時間：${density.toLocaleString()}${pendingMetric.unit}／時間`);
-                        }
-                        if (options.weight && pendingMetric.sum > 0) {
-                            const weight = totalMinutes / pendingMetric.sum;
-                            const weightStr = weight < 0.01 ? weight.toFixed(5) : weight < 1 ? weight.toFixed(3) : weight.toFixed(1);
-                            lines.push(`　時間／単位1：${weightStr}分／${pendingMetric.unit}`);
-                        }
-
-                        if (lines.length > 0) {
-                            appendToEditorial(`【メトリクス：${pendingMetric.name}】\n${lines.join('\n')}`);
+                    onConfirm={(text) => {
+                        if (text.trim()) {
+                            appendToEditorial(text);
                         }
                         setPendingMetric(null);
                     }}
@@ -1363,12 +1641,29 @@ export const DashboardPage: React.FC = () => {
                 />
             )}
 
+            {selectedDailyDate && (
+                <DailyMetricModal
+                    dateKey={selectedDailyDate}
+                    onClose={() => setSelectedDailyDate(null)}
+                />
+            )}
+
             {editingLogId && (
                 <EditLogModal
                     log={fetchedLogs!.find(l => l.id === editingLogId)!}
                     onClose={() => setEditingLogId(null)}
                 />
             )}
+
+            {showCrossAnalysis && (
+                <CrossAnalysisModal
+                    period={period}
+                    availableMetrics={availableMetrics}
+                    onClose={() => setShowCrossAnalysis(false)}
+                    onInsertToReport={(text) => appendToEditorial(text)}
+                />
+            )}
         </div>
+
     );
 };

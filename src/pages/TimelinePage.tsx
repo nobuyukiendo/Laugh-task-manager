@@ -6,7 +6,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { Card, Button, Input, Select, Label } from '../components/ui';
 import { format, parse } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { ChevronLeft, ChevronRight, Trash2, Edit2, UploadCloud, CalendarCheck, Plus, X, Book, History as HistoryIcon, AlertCircle, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit2, UploadCloud, CalendarCheck, Plus, X, Book, History as HistoryIcon, AlertCircle, Calendar, BarChart2 } from 'lucide-react';
 import { EditLogModal } from '../components/EditLogModal';
 import { useGoogleCalendar, ImportEvent } from '../hooks/useGoogleCalendar';
 import { ImportGCalModal } from '../components/ImportGCalModal';
@@ -15,6 +15,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { exportAllData } from '../utils/dbExportImport';
 import { googleDriveService } from '../services/googleDriveService';
 import { MetricsInputList } from '../components/metrics/MetricsInputList';
+import { DailyMetricModal } from '../components/DailyMetricModal';
 import { MetricEntry } from '../db';
 import { validateMetrics } from '../utils/metrics';
 
@@ -42,6 +43,7 @@ export const TimelinePage: React.FC = () => {
     const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
     const [showManualEntry, setShowManualEntry] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
+    const [showDailyMetricModal, setShowDailyMetricModal] = useState(false);
 
     // Sync State
     const [syncErrors, setSyncErrors] = useState<Record<string, string>>({});
@@ -448,6 +450,16 @@ export const TimelinePage: React.FC = () => {
             )}
 
             <div className="flex justify-end gap-2">
+                <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setShowDailyMetricModal(true)}
+                    className="gap-1 border border-border bg-surface text-cyan-700 dark:text-cyan-400 font-bold"
+                    data-theme-role="surface"
+                >
+                    <BarChart2 size={16} />
+                    日次メトリクス入力
+                </Button>
                 {settings?.calendar.connected && (
                     <Button
                         size="sm"
@@ -851,6 +863,15 @@ export const TimelinePage: React.FC = () => {
                         onImportSuccess={() => {
                             // Success toast or refresh logic if needed
                         }}
+                    />
+                )
+            }
+
+            {
+                showDailyMetricModal && (
+                    <DailyMetricModal
+                        dateKey={dateKey}
+                        onClose={() => setShowDailyMetricModal(false)}
                     />
                 )
             }

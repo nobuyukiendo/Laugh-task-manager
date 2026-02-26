@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, Department, WorkType, DetailTask, RecentDetailTask, Partner, Location, MetricMaster, MetricHistory } from '../db';
+import { db, Department, WorkType, DetailTask, RecentDetailTask, Partner, Location, MetricMaster, MetricHistory, CrossFormula } from '../db';
 
 interface MasterContextType {
     departments: Department[];
@@ -42,6 +42,11 @@ interface MasterContextType {
 
     metricHistories: MetricHistory[];
     addMetricHistory: (name: string, unit: string) => Promise<string>;
+
+    crossFormulas: CrossFormula[];
+    addCrossFormula: (f: Omit<CrossFormula, 'id' | 'createdAt' | 'order'>) => Promise<string>;
+    updateCrossFormula: (id: string, u: Partial<CrossFormula>) => Promise<number>;
+    deleteCrossFormula: (id: string) => Promise<void>;
 }
 
 const MasterContext = createContext<MasterContextType | undefined>(undefined);
@@ -55,6 +60,7 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const locations = useLiveQuery(() => db.locations.orderBy('order').toArray(), []) || [];
     const metricMasters = useLiveQuery(() => db.metricMasters.orderBy('order').toArray(), []) || [];
     const metricHistories = useLiveQuery(() => db.metricHistories.orderBy('lastUsedAt').reverse().toArray(), []) || [];
+    const crossFormulas = useLiveQuery(() => db.crossFormulas.orderBy('order').toArray(), []) || [];
 
     const addDepartment = async (dept: Department) => {
         return await db.departments.add(dept);
@@ -183,6 +189,16 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         }
     };
 
+    // CrossFormulas
+    const addCrossFormula = async (f: Omit<CrossFormula, 'id' | 'createdAt' | 'order'>) => {
+        const id = uuidv4();
+        const count = await db.crossFormulas.count();
+        await db.crossFormulas.add({ ...f, id, order: count + 1, createdAt: Date.now() });
+        return id;
+    };
+    const updateCrossFormula = async (id: string, u: Partial<CrossFormula>) => db.crossFormulas.update(id, u);
+    const deleteCrossFormula = async (id: string) => { await db.crossFormulas.delete(id); };
+
     return (
         <MasterContext.Provider value={{
             departments,
@@ -197,7 +213,8 @@ export const MasterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             addPartner, updatePartner, deletePartner,
             locations, addLocation, updateLocation, deleteLocation,
             metricMasters, addMetricMaster, updateMetricMaster, deleteMetricMaster,
-            metricHistories, addMetricHistory
+            metricHistories, addMetricHistory,
+            crossFormulas, addCrossFormula, updateCrossFormula, deleteCrossFormula
         }}>
             {children}
         </MasterContext.Provider>

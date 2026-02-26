@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ExternalLink, Copy, Pin, PinOff, X } from 'lucide-react';
-import type { TrelloCheckItem, TrelloCard, TrelloAttachment } from '../../types/trello-types';
+import type { TrelloCheckItem, TrelloAttachment } from '../../types/trello-types';
 import { getTrelloToken } from '../../lib/trello-auth';
 
 /**
@@ -28,20 +28,18 @@ const CACHE_DURATION = 10 * 60 * 1000; // 10分
 
 interface ItemPreviewPopoverProps {
     checkItem: TrelloCheckItem;
-    cardId: string;
     onClose: () => void;
 }
 
 export const ItemPreviewPopover: React.FC<ItemPreviewPopoverProps> = ({
     checkItem,
-    cardId,
     onClose,
 }) => {
     const [isPinned, setIsPinned] = useState(false);
     const [cardPreviews, setCardPreviews] = useState<Map<string, any>>(new Map());
     const [isLoadingPreviews, setIsLoadingPreviews] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const urls = extractUrls(checkItem.name);
     const trelloCardUrls = urls.filter((u) => u.isTrelloCard);
